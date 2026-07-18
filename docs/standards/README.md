@@ -2,6 +2,10 @@
 
 This directory stores supporting engineering standards that extend the main handbook.
 
+## Active Standards
+
+- `BRANCH_PROTECTION_RULES.md`
+
 ## Examples
 
 - language-specific conventions

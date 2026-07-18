@@ -1,0 +1,47 @@
+name: Documentation update
+description: Request documentation creation, correction, or maintenance
+title: "[Docs]: "
+labels:
+  - documentation
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to request handbook, ADR, runbook, README, or workflow documentation updates.
+
+  - type: textarea
+    id: affected-doc
+    attributes:
+      label: Affected document or area
+      description: Which file, folder, or documentation topic needs to be updated?
+      placeholder: ENGINEERING_HANDBOOK.md or docs/runbooks
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: Current gap or problem
+      description: What is missing, outdated, or incorrect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: requested-change
+    attributes:
+      label: Requested change
+      description: Describe the update that should be made.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true

@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build and framework outputs
+.next/
+out/
+dist/
+build/
+coverage/
+.turbo/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE and editor files
+.idea/
+.vscode/
+*.iml
+
+# Runtime and cache files
+tmp/
+temp/
+.cache/
+*.pid
+*.seed
+*.pid.lock
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Local databases and generated media artifacts
+*.sqlite
+*.sqlite3
+uploads/
+generated/
+
+# Optional local infra files
+docker-compose.override.yml

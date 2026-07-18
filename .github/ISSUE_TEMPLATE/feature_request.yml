@@ -1,0 +1,64 @@
+name: Feature request
+description: Propose a new capability, improvement, or product workflow
+title: "[Feature]: "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for product, platform, and workflow improvements. Focus on user value, scope, and operational impact.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are we solving?
+      placeholder: Users on shared devices need a faster way to switch profiles without losing privacy.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the expected behavior or desired capability.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and affected areas
+      description: List affected modules, surfaces, or teams if known.
+      placeholder: Identity, session handling, Bangla UI, settings flow
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List rejected or fallback approaches if applicable.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Requested priority
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for this work to be considered complete?
+    validations:
+      required: true

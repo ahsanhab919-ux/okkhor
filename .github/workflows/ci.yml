@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - development
+      - "feature/**"
+      - "fix/**"
+      - "docs/**"
+      - "chore/**"
+      - "hotfix/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+        if: ${{ hashFiles('package.json') != '' }}
+
+      - name: Validate repository standards files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "ENGINEERING_HANDBOOK.md"
+            "CONTRIBUTING.md"
+            ".github/pull_request_template.md"
+            ".github/CODEOWNERS"
+            ".github/workflows/ci.yml"
+            ".github/ISSUE_TEMPLATE/bug_report.yml"
+            ".github/ISSUE_TEMPLATE/feature_request.yml"
+            ".github/ISSUE_TEMPLATE/documentation_update.yml"
+            ".github/ISSUE_TEMPLATE/config.yml"
+            "docs/standards/BRANCH_PROTECTION_RULES.md"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "Missing required repository file: $file"
+              exit 1
+            fi
+          done
+
+      - name: Detect package manager and install command
+        id: detect
+        shell: bash
+        run: |
+          if [[ ! -f package.json ]]; then
+            echo "package_manager=none" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -f pnpm-lock.yaml ]]; then
+            echo "package_manager=pnpm" >> "$GITHUB_OUTPUT"
+            echo "install_command=corepack enable && pnpm install --frozen-lockfile" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -f yarn.lock ]]; then
+            echo "package_manager=yarn" >> "$GITHUB_OUTPUT"
+            echo "install_command=corepack enable && yarn install --frozen-lockfile" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "package_manager=npm" >> "$GITHUB_OUTPUT"
+          if [[ -f package-lock.json ]]; then
+            echo "install_command=npm ci" >> "$GITHUB_OUTPUT"
+          else
+            echo "install_command=npm install" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: ${{ steps.detect.outputs.package_manager != 'none' }}
+        shell: bash
+        run: ${{ steps.detect.outputs.install_command }}
+
+      - name: Run lint if available
+        if: ${{ hashFiles('package.json') != '' }}
+        shell: bash
+        run: |
+          if node -e "const s=require('./package.json').scripts||{}; process.exit(s.lint?0:1)"; then
+            npm run lint
+          else
+            echo "No lint script defined. Skipping."
+          fi
+
+      - name: Run unit tests if available
+        if: ${{ hashFiles('package.json') != '' }}
+        shell: bash
+        run: |
+          if node -e "const s=require('./package.json').scripts||{}; process.exit(s.test?0:1)"; then
+            npm test -- --runInBand
+          else
+            echo "No test script defined. Skipping."
+          fi
+
+      - name: Run build if available
+        if: ${{ hashFiles('package.json') != '' }}
+        shell: bash
+        run: |
+          if node -e "const s=require('./package.json').scripts||{}; process.exit(s.build?0:1)"; then
+            npm run build
+          else
+            echo "No build script defined. Skipping."
+          fi
+
+      - name: CI summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## CI Summary"
+            echo ""
+            echo "- Workflow: \`${{ github.workflow }}\`"
+            echo "- Ref: \`${{ github.ref }}\`"
+            echo "- Event: \`${{ github.event_name }}\`"
+            echo "- Package manager: \`${{ steps.detect.outputs.package_manager || 'none' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

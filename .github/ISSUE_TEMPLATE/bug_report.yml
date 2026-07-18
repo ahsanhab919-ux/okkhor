@@ -1,0 +1,76 @@
+name: Bug report
+description: Report a defect, regression, or broken behavior
+title: "[Bug]: "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Please provide enough detail for reproduction, impact assessment, and safe triage.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the problem in one or two clear sentences.
+      placeholder: Playback fails after login on low-bandwidth mobile sessions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide deterministic steps if possible.
+      placeholder: |
+        1. Sign in with phone OTP
+        2. Open a journal video
+        3. Switch to a weak mobile connection
+        4. Observe the failure
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, device, and branch or environment if known.
+      placeholder: Chrome 126 on Android 12, staging
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs, screenshots, or evidence
+      description: Paste safe logs, screenshots, screen recordings, or links.
+    validations:
+      required: false

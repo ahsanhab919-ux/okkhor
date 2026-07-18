@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Engineering Handbook
+    url: https://github.com/ahsanhab919-ux/okkhor/blob/main/ENGINEERING_HANDBOOK.md
+    about: Review repository standards, engineering workflow, and contribution rules before filing.
+  - name: Contribution Guide
+    url: https://github.com/ahsanhab919-ux/okkhor/blob/main/CONTRIBUTING.md
+    about: Check contribution workflow, branch strategy, and review requirements.

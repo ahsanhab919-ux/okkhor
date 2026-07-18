@@ -1,0 +1,10 @@
+# Default ownership for the repository. Expand by path as the codebase grows.
+* @ahsanhab919-ux
+
+# Documentation and standards
+/docs/ @ahsanhab919-ux
+/ENGINEERING_HANDBOOK.md @ahsanhab919-ux
+/CONTRIBUTING.md @ahsanhab919-ux
+
+# GitHub automation and templates
+/.github/ @ahsanhab919-ux
