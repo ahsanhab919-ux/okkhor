@@ -1,0 +1,20 @@
+# ADR Directory
+
+This directory stores Architecture Decision Records.
+
+## Current Files
+
+- `ADR_TEMPLATE.md`
+
+## Naming Convention
+
+Use:
+
+- `ADR-001-adopt-modular-monolith.md`
+- `ADR-002-adopt-nextjs-app-router.md`
+
+## ADR Rules
+
+- One ADR per major architectural or policy decision
+- Update ADRs when a decision is deprecated or superseded
+- Link related PRs and handbook sections where possible
