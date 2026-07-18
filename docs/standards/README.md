@@ -5,6 +5,7 @@ This directory stores supporting engineering standards that extend the main hand
 ## Active Standards
 
 - `BRANCH_PROTECTION_RULES.md`
+- `REPOSITORY_MAINTENANCE_SPEC.md`
 
 ## Examples
 
