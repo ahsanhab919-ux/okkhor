@@ -1,0 +1,60 @@
+name: Incident report
+description: Report a production incident, outage, or severe degradation for triage and post-incident follow-up.
+title: "[Incident]: "
+labels:
+  - "type: incident"
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Classify the incident impact before triage begins.
+      options:
+        - SEV-1
+        - SEV-2
+        - SEV-3
+        - SEV-4
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproducible steps
+      description: Describe the actions, traffic conditions, or deployment events that reproduce the incident.
+      placeholder: |
+        1. Navigate to ...
+        2. Submit ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe the intended system behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed errors
+      description: Include user-facing failures, logs, alerts, or trace identifiers.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment details
+      description: Provide environment, region, device, browser, release, and time window details.
+      placeholder: |
+        Environment: production
+        Region: Singapore edge / Bangladesh users
+        Device: Android 11, 3 GB RAM
+        Browser/App: Chrome 126
+        Release: commit SHA or deployment ID
+    validations:
+      required: true

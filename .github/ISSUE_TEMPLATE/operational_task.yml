@@ -1,0 +1,41 @@
+name: Operational task
+description: Plan production, infrastructure, deployment, and capacity-oriented operational work.
+title: "[Ops]: "
+labels:
+  - "type: ops"
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: Task description
+      description: Describe the operational change or activity.
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback plan
+      description: Explain how the change can be safely reversed if needed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: approvals
+    attributes:
+      label: Stakeholder approvals
+      description: Record required approvers, owners, or dependent teams.
+      placeholder: |
+        - Engineering lead
+        - Repository administrator
+        - Operations reviewer
+    validations:
+      required: true
+
+  - type: textarea
+    id: timeline
+    attributes:
+      label: Implementation timeline
+      description: Capture the execution window, milestones, and any freeze constraints.
+    validations:
+      required: true

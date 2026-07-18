@@ -20,19 +20,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  repository-standards:
+    name: repository-standards
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-        if: ${{ hashFiles('package.json') != '' }}
 
       - name: Validate repository standards files
         shell: bash
@@ -46,10 +41,16 @@ jobs:
             ".github/CODEOWNERS"
             ".github/workflows/ci.yml"
             ".github/ISSUE_TEMPLATE/bug_report.yml"
-            ".github/ISSUE_TEMPLATE/feature_request.yml"
-            ".github/ISSUE_TEMPLATE/documentation_update.yml"
+            ".github/ISSUE_TEMPLATE/chore.yml"
             ".github/ISSUE_TEMPLATE/config.yml"
+            ".github/ISSUE_TEMPLATE/documentation_update.yml"
+            ".github/ISSUE_TEMPLATE/feature_request.yml"
+            ".github/ISSUE_TEMPLATE/incident_report.yml"
+            ".github/ISSUE_TEMPLATE/operational_task.yml"
             "docs/standards/BRANCH_PROTECTION_RULES.md"
+            "package.json"
+            "package-lock.json"
+            "tsconfig.json"
           )
 
           for file in "${required_files[@]}"; do
@@ -59,78 +60,95 @@ jobs:
             fi
           done
 
-      - name: Detect package manager and install command
-        id: detect
-        shell: bash
-        run: |
-          if [[ ! -f package.json ]]; then
-            echo "package_manager=none" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+  static-analysis:
+    name: static-analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: repository-standards
 
-          if [[ -f pnpm-lock.yaml ]]; then
-            echo "package_manager=pnpm" >> "$GITHUB_OUTPUT"
-            echo "install_command=corepack enable && pnpm install --frozen-lockfile" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-          if [[ -f yarn.lock ]]; then
-            echo "package_manager=yarn" >> "$GITHUB_OUTPUT"
-            echo "install_command=corepack enable && yarn install --frozen-lockfile" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "package_manager=npm" >> "$GITHUB_OUTPUT"
-          if [[ -f package-lock.json ]]; then
-            echo "install_command=npm ci" >> "$GITHUB_OUTPUT"
-          else
-            echo "install_command=npm install" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
-        if: ${{ steps.detect.outputs.package_manager != 'none' }}
-        shell: bash
-        run: ${{ steps.detect.outputs.install_command }}
+        run: npm ci
 
-      - name: Run lint if available
-        if: ${{ hashFiles('package.json') != '' }}
-        shell: bash
-        run: |
-          if node -e "const s=require('./package.json').scripts||{}; process.exit(s.lint?0:1)"; then
-            npm run lint
-          else
-            echo "No lint script defined. Skipping."
-          fi
+      - name: Run lint
+        run: npm run lint
 
-      - name: Run unit tests if available
-        if: ${{ hashFiles('package.json') != '' }}
-        shell: bash
-        run: |
-          if node -e "const s=require('./package.json').scripts||{}; process.exit(s.test?0:1)"; then
-            npm test -- --runInBand
-          else
-            echo "No test script defined. Skipping."
-          fi
+      - name: Run type-check
+        run: npm run typecheck
 
-      - name: Run build if available
-        if: ${{ hashFiles('package.json') != '' }}
-        shell: bash
-        run: |
-          if node -e "const s=require('./package.json').scripts||{}; process.exit(s.build?0:1)"; then
-            npm run build
-          else
-            echo "No build script defined. Skipping."
-          fi
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: repository-standards
 
-      - name: CI summary
-        if: always()
-        shell: bash
-        run: |
-          {
-            echo "## CI Summary"
-            echo ""
-            echo "- Workflow: \`${{ github.workflow }}\`"
-            echo "- Ref: \`${{ github.ref }}\`"
-            echo "- Event: \`${{ github.event_name }}\`"
-            echo "- Package manager: \`${{ steps.detect.outputs.package_manager || 'none' }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit and integration tests
+        run: npm run test:ci
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - static-analysis
+      - tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+  dependency-audit:
+    name: dependency-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: repository-standards
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run dependency vulnerability audit
+        run: npm audit --audit-level=high
