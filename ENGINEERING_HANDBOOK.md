@@ -123,6 +123,67 @@ Every significant technical area must eventually have:
 - runbooks for operationally sensitive components
 - ADRs for major decisions
 
+### 3.5 NBU Experience and Trust Architecture
+
+The product surface must follow a `bKash-style` interaction model for first-time and low-confidence users across South Asia.
+
+This means the UI is not optimized for dense reading first. It is optimized for:
+
+- visual confidence
+- low digital literacy contexts
+- phone-number-first identity patterns
+- shared-device privacy
+- high-latency and low-memory environments
+
+#### Design Principles
+
+- Prefer icons over long text labels for primary navigation.
+- Use step-by-step visual guidance for onboarding, OTP entry, subscription actions, and research progress flows.
+- Localize for comprehension, not literal translation; Bangla copy must explain concepts in everyday language.
+- Show immediate proof of action after important events such as login success, payment success, subscription change, or profile switch.
+- Make trust-building surfaces highly visible: watch history, subscription status, payment confirmations, and transaction logs.
+
+#### Identity and Authentication UX Rules
+
+- Phone number is the default user identifier for sign-in and account recovery.
+- OTP is the default first-login and routine sign-in method unless a stronger flow is required by risk controls.
+- Email may exist as a secondary recovery or notification channel, never as the primary identity assumption.
+- OTP delivery and verification states must expose clear loading, success, timeout, resend, and failure indicators.
+- Sessions for mobile-first users should be device-aware and optimized for fast re-entry without weakening security controls.
+
+#### Shared Device UX Rules
+
+- Provide a prominent one-tap logout control in globally accessible navigation.
+- Support fast profile switching for households that share one device.
+- Require clear active-profile indication before showing personal progress, saved items, or subscription details.
+- Offer optional PIN re-entry before entering sensitive account, billing, or profile-management flows.
+
+#### Low-Literacy and Trust-Building Rules
+
+- Use recognizable icons with short supporting labels where ambiguity is possible.
+- Replace long instructional paragraphs with short guided steps, progress bars, and visual state changes.
+- Prefer localized video or motion-assisted tutorials for first-run education and fraud-awareness guidance.
+- Teach security behaviors in-product, including phishing avoidance, OTP privacy, and the difference between self-service and agent-assisted habits.
+- Design dispute, payment, and subscription states to feel auditable rather than opaque.
+
+#### Performance and Delivery Rules
+
+- Use optimized `SVG` icon assets for core navigation and status indicators by default.
+- Avoid heavy bitmap icon packs, unnecessary animation libraries, and large client-side onboarding bundles.
+- Lazy-load non-critical icon groups, tutorials, and profile surfaces.
+- Provide context-aware low-bandwidth states such as data saver layouts, reduced media density, and simplified navigation.
+- Treat responsiveness on `2-4 GB RAM` Android devices as a release criterion, not a nice-to-have.
+
+#### Engineering Implications
+
+- `Identity` owns phone-number-first OTP orchestration and secure session lifecycle.
+- `Localization` owns Bangla comprehension quality, not just string translation.
+- `Frontend` owns icon hierarchy, progress guidance, and trust-surface visibility.
+- `Operational Intelligence` and device/context signals may trigger data saver or degraded UI states during poor connectivity.
+
+Implementation details are documented in `docs/architecture/nbu-ux-and-phone-first-identity.md`.
+The governing decision is documented in `docs/adr/ADR-009-adopt-phone-first-identity-and-icon-driven-nbu-ux.md`.
+
 Recommended repository layout once scaffolding begins:
 
 ```text
@@ -688,6 +749,7 @@ The project should create these ADRs early:
 - `ADR-006`: Adopt Qdrant for semantic discovery
 - `ADR-007`: Adopt offline-first support where client context requires it
 - `ADR-008`: Adopt calendar-aware predictive operations
+- `ADR-009`: Adopt phone-first identity and icon-driven NBU UX
 
 ## 17. Immediate Bootstrap Actions
 

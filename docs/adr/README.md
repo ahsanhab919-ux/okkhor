@@ -5,6 +5,10 @@ This directory stores Architecture Decision Records.
 ## Current Files
 
 - `ADR_TEMPLATE.md`
+- `ADR-001-adopt-modular-monolith.md`
+- `ADR-002-adopt-nextjs-app-router.md`
+- `ADR-003-adopt-cloudflare-r2-for-assets.md`
+- `ADR-009-adopt-phone-first-identity-and-icon-driven-nbu-ux.md`
 
 ## Naming Convention
 
@@ -12,6 +16,7 @@ Use:
 
 - `ADR-001-adopt-modular-monolith.md`
 - `ADR-002-adopt-nextjs-app-router.md`
+- `ADR-009-adopt-phone-first-identity-and-icon-driven-nbu-ux.md`
 
 ## ADR Rules
 

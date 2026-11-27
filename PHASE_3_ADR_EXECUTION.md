@@ -91,7 +91,9 @@ The current phase deliverable is complete only when:
 
 ### Step 4: Approval request
 
-- Status: `Ready`
+- Status: `Approved`
 - Approval required before:
   - creating `ADR-003`
   - starting framework-specific repository scaffolding based on this ADR
+- Outcome:
+  - approval granted on `2026-11-27`; `ADR-003` work proceeds under `PHASE_4_ADR_EXECUTION.md`

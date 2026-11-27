@@ -1,17 +1,13 @@
 # Architecture Docs
 
-Store architecture documentation here.
+Store system design, module contracts, failure handling, and architecture-specific implementation guides here.
 
-## Expected Contents
+## Current Documents
 
-- system overview
-- module boundaries
-- API contracts
-- data model summaries
-- sequence diagrams
-- failure and fallback notes
+- `authentication-backend-slice.md` - auth domain flow, persistence behavior, migration workflow, and validation notes
+- `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
-## Starter Documents To Add Next
+## Expected Future Additions
 
 - `system-overview.md`
 - `module-boundaries.md`

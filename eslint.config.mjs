@@ -6,7 +6,7 @@ const compat = new FlatCompat({
 
 const config = [
   {
-    ignores: ["coverage/**", ".next/**", "node_modules/**"],
+    ignores: ["coverage/**", ".next/**", "node_modules/**", "shothik-verification/**"],
   },
   ...compat.extends("next/core-web-vitals"),
 ];
