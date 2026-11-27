@@ -3,7 +3,7 @@
 Version: `1.0`  
 Phase: `ADR-008 Bootstrap`  
 Execution Mode: `Strictly Sequential`  
-Status: `In Progress`
+Status: `Completed`
 
 ## 1. Phase Objective
 
@@ -112,8 +112,19 @@ The current phase deliverable is complete only when:
 
 ### Step 4: Approval request
 
-- Status: `Pending`
-- Approval required before:
-  - promoting `ADR-008` from `Proposed` to `Accepted`
+- Status: `Approved` (2026-11-27)
+- Approval scope:
+  - promote `ADR-008` from `Proposed` to `Accepted`
+  - close this phase
+- Approval deferred by decision:
   - building any calendar, readiness, or automation tooling
-  - closing this phase
+
+### Step 5: ADR-008 promotion
+
+- Status: `Passed`
+- Findings:
+  - `ADR-008` status changed from `Proposed` to `Accepted`
+  - no calendar, readiness, or automation tooling is in scope for this phase
+- Outcome:
+  - the phase deliverable is accepted, and the phase is complete
+  - the handbook's initial ADR backlog is complete: `ADR-001` through `ADR-009` all exist and none remain `Proposed`
