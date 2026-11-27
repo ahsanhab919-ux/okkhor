@@ -69,8 +69,12 @@ module**, not a component: it wraps `fetch` against the auth API with
 `credentials: "include"`.
 
 Everything else — `src/modules/experience/ui.tsx`, `src/modules/experience/site-content.ts`,
-all pages, all route handlers, all module `domain`/`application`/`infrastructure` code — is
-server-side.
+`src/modules/content/ui/content-views.tsx`, all pages, all route handlers, all module
+`domain`/`application`/`infrastructure` code — is server-side.
+
+The `content` module adds **no** client island: its list and detail pages are server
+components that render the server-safe `ContentItemList` / `ContentItemDetail` views directly,
+so the read path needs no JavaScript at all.
 
 ## 6. Import Graph Nuance
 

@@ -1,21 +1,24 @@
 # Content Comprehension Slice
 
-- Status: `Proposed` (awaiting Definition of Ready approval — see §2)
+- Status: `Implemented` (read path; Definition of Ready accepted — see §2)
 - Related ADRs: `ADR-001`, `ADR-002`, `ADR-004`, `ADR-009`
-- Owner: `To be assigned`
+- Owner: `Engineering Lead`
 - Handbook: `ENGINEERING_HANDBOOK.md` §7.2 (Definition of Ready), §7.3 (Definition of Done)
 
 ## 1. Purpose
 
-Propose the **first product-defining vertical slice** for `Okkhor`: browsing research
+Describe the **first product-defining vertical slice** for `Okkhor`: browsing research
 comprehension items (a source-language title/abstract with a Bangla summary). This document is
 the design/architecture note the handbook requires before medium-complexity work enters
-development, and it carries the Definition of Ready for that slice.
+development, and it carried the Definition of Ready for that slice.
 
-Everything here is a **proposal for review**. Until §2 is approved, no implementation should
-start. Decisions left open are collected in §12.
+The slice is now **implemented** (read path only). The Definition of Ready in §2 was accepted,
+the open questions in §12 are resolved, and the acceptance criteria in §3 are met. §4 records
+what remains explicitly out of scope for slice 1.
 
 ## 2. Definition of Ready (`§7.2`)
+
+Table kept as originally accepted.
 
 | Requirement | This slice |
 | --- | --- |
@@ -25,7 +28,9 @@ start. Decisions left open are collected in §12.
 | Risk level understood | **Medium** — first new domain module and first new table outside identity, but no new external service (§11) |
 | Design/architecture note | This document |
 
-Do not start implementation until this section is accepted.
+Accepted: the Definition of Ready was signed off and the four open questions in §12 were
+resolved (public read; per-module `CONTENT_STORAGE_DRIVER`; cursor pagination; UUID path
+segments).
 
 ## 3. Business Outcome and Acceptance Criteria
 
@@ -33,22 +38,26 @@ Do not start implementation until this section is accepted.
 content is stored once, and a learner reads a native-language summary of it on a low-end
 device — the first slice that is *product*, not platform.
 
-Acceptance criteria:
+Acceptance criteria (all met):
 
-- [ ] A `content` module exists under `src/modules/content/` following the layering in
+- [x] A `content` module exists under `src/modules/content/` following the layering in
       [module-boundaries.md](module-boundaries.md) (`domain` / `application` /
       `infrastructure` / `api` / `ui`).
-- [ ] A learner can open `/content` and see a list of published research items.
-- [ ] A learner can open `/content/[id]` and read the item's title, source-language abstract,
+- [x] A learner can open `/content` and see a list of published research items.
+- [x] A learner can open `/content/[id]` and read the item's title, source-language abstract,
       and Bangla summary.
-- [ ] Both pages render as **server components** — content is readable with JavaScript
+- [x] Both pages render as **server components** — content is readable with JavaScript
       disabled, per [server-vs-client-components.md](server-vs-client-components.md).
-- [ ] Items are served from PostgreSQL in non-test environments and from an in-memory store under
-      `NODE_ENV=test`, selected by the documented driver pattern.
-- [ ] A migration creates the `content_items` table with a working `down`.
-- [ ] An unknown or unpublished id returns a `404` page, not a crash.
-- [ ] Unit tests cover the memory repository; integration tests cover the list/detail reads and
+- [x] Items are served from PostgreSQL in non-test environments and from an in-memory store under
+      `NODE_ENV=test`, selected by the documented driver pattern (`CONTENT_STORAGE_DRIVER`).
+- [x] A migration creates the `content_items` table with a working `down`.
+- [x] An unknown or unpublished id returns a `404` page, not a crash.
+- [x] Unit tests cover the memory repository; integration tests cover the list/detail reads and
       the migration path.
+
+The `content_items` table and its repository are the first non-identity persistence surface; the
+"served from PostgreSQL in non-test environments" criterion is satisfied by
+`CONTENT_STORAGE_DRIVER` resolving to the Postgres repository whenever `DATABASE_URL` is present.
 
 ## 4. Scope
 
@@ -105,20 +114,20 @@ Read-only, following the conventions in [api-contracts.md](api-contracts.md):
 - Pagination: `?limit=&cursor=` (cursor pagination) — see §12.
 - No `POST`/`PATCH` in slice 1.
 
-Public read is proposed because comprehension content is the top of the funnel and should be
-reachable without an account; this is called out as an open question in §12.
+Read is public: comprehension content is the top of the funnel and must be reachable without
+an account. This was resolved in §12.
 
 ## 7. Module Placement and Dependencies
 
 ```
 src/modules/content/
-  domain/         content-types.ts, content-errors.ts
-  application/    content-service.ts        (list/get use cases)
+  domain/         content-types.ts, content-errors.ts, content-pagination.ts
+  application/    content-service.ts        (list/get use cases, cursor codec)
   infrastructure/ content-repository.ts     (driver selector)
                   content-store.ts          (in-memory repository)
                   postgres-content-repository.ts
   api/            content-http.ts           (response/error shaping)
-  ui/             (list/detail presentational components, server-safe)
+  ui/             content-views.tsx         (list/detail presentational components, server-safe)
 ```
 
 - Depends on `platform` for any cross-cutting concern, and on nothing else at module level.
@@ -129,7 +138,7 @@ src/modules/content/
 
 ## 8. Persistence and Migration
 
-New migration `migrations/<timestamp>_create_content_items.cjs` (kebab-case config,
+New migration `migrations/20261128090000_create_content_items.cjs` (kebab-case config,
 `single-transaction: true`, with a working `down`):
 
 | Column | Type | Constraints |
@@ -153,7 +162,8 @@ list query. Follows the timestamp-as-`text` convention recorded in
 Driver selection mirrors the established pattern (`§5.1`/`§5.2` in
 [data-models.md](data-models.md)): `CONTENT_STORAGE_DRIVER=auto|memory|postgres`, resolving to
 memory under `NODE_ENV=test`, otherwise PostgreSQL when `DATABASE_URL` is present, otherwise a
-fail-fast misconfiguration error. **The per-module env var name is an open question (§12).**
+fail-fast misconfiguration error. A per-module env var was chosen (resolved in §12) so the
+content module's driver is independent of `AUTH_STORAGE_DRIVER`.
 
 ## 9. What This Does Not Trigger
 
@@ -184,15 +194,24 @@ Uses only `ADR-004` (PostgreSQL), which is already implemented.
 | Bangla rendering on low-end devices | Low | Server-rendered text; no client bundle for reading; validate with `ADR-009` guidance |
 | Pagination choice locked too early | Low | Cursor vs offset called out in §12; either is reversible at this scale |
 
-## 12. Open Questions (resolve before implementation)
+## 12. Resolved Decisions
 
-1. **Public vs authenticated read.** Is `/content` public, or behind the existing middleware
-   like `/community`? (Proposal: public.)
-2. **Storage-driver env var.** Reuse a shared key, or a per-module
-   `CONTENT_STORAGE_DRIVER`? (Proposal: per-module, matching `AUTH_STORAGE_DRIVER`.)
-3. **Pagination.** Cursor or offset? (Proposal: cursor.)
-4. **Seed content source.** Who supplies the first hand-authored items, and under what licence?
-5. **Item identity in URLs.** UUID path segment (proposal) or a slug?
+All five questions are now resolved and reflected in the implementation.
+
+1. **Public vs authenticated read — public.** `/content` and `/content/[id]` are not gated by
+   the middleware; comprehension content is the top of the funnel and must be reachable
+   without an account. The read endpoints require no auth.
+2. **Storage-driver env var — per-module `CONTENT_STORAGE_DRIVER`.** Mirrors
+   `AUTH_STORAGE_DRIVER`; the content module's driver is independent of the identity module's.
+3. **Pagination — cursor.** Keyset pagination ordered `publishedAt DESC, id DESC`, with an
+   opaque base64url cursor over `"<publishedAt>|<id>"`. `limit` defaults to `20` and is
+   clamped to `[1, 50]`. Reversible at this scale if a future slice needs offset paging.
+4. **Seed content source — illustrative placeholders.** Slice 1 ships
+   clearly-labelled hand-authored sample items in `scripts/seed-content.ts`; they are not
+   curated from any licensed source. A real editorial source and licence are future work,
+   gated by the authoring slice.
+5. **Item identity in URLs — UUID path segment.** `/content/[id]` uses the item's UUID;
+   slugs are deferred until human-readable URLs are a demonstrated need.
 
 ## 13. Definition of Done (`§7.3`)
 
@@ -201,8 +220,14 @@ unit/integration/component tests are added; [api-contracts.md](api-contracts.md)
 [data-models.md](data-models.md) are updated for the new surface; observability covers the new
 endpoints; and rollout/rollback (migration `up`/`down`) is documented.
 
-## 14. Recommended Next Step
+## 14. Status and Next Step
 
-Review §2 (Definition of Ready), §4 (scope), and §12 (open questions). On acceptance, the
-implementation order is: migration → domain/application → infrastructure (memory, then
-PostgreSQL) → endpoints → pages → tests → docs update.
+The read-path slice is implemented: migration → domain/application → infrastructure (memory,
+then PostgreSQL) → endpoints → pages → seed → tests → docs. See
+[api-contracts.md](api-contracts.md) §4.9–§4.10, [data-models.md](data-models.md) §2.6/§3.4/§5.4,
+and [module-boundaries.md](module-boundaries.md) §5.4 for the shipped surface.
+
+Next step is the **authoring/write slice** (create/update endpoints, an authoring UI, and a real
+editorial content source) or the **search slice**; each is a new design note and must not start
+until its own Definition of Ready is accepted. Slice 1 deliberately stops at the read path and
+triggers none of the deferred infrastructure ADRs (§9).

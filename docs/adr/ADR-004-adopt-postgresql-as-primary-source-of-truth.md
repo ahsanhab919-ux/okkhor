@@ -34,7 +34,7 @@ The handbook is explicit that this decision is expected:
 
 The identity slice has already been implemented against this decision, which makes recording it now a correctness requirement rather than a forward-looking plan:
 
-- `src/modules/identity/infrastructure/postgres-config.ts` reads `DATABASE_URL` and pool tuning variables
+- `src/modules/platform/infrastructure/postgres-config.ts` reads `DATABASE_URL` and pool tuning variables
 - `node-pg-migrate.config.cjs` defines a `schema_migrations` table, ordered checks, a single migration transaction, and fail-fast advisory locking
 - `migrations/20260718222000_create_auth_identity_tables.cjs` creates `auth_users`, `auth_sessions`, and `auth_password_resets` with foreign keys and a supporting index
 - `scripts/verify-postgres-auth.ts` verifies connectivity, schema presence, privileges, connection reuse, and CRUD within a transaction

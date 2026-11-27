@@ -79,7 +79,6 @@ src/modules/identity/
   infrastructure/ auth-repository.ts  (driver selector)
                   auth-store.ts       (in-memory repository)
                   postgres-auth-repository.ts
-                  postgres-config.ts
   api/            auth-http.ts        (cookie + error helpers)
   client/         session-client.ts   ("use client" session fetch helpers)
   ui/             auth-page-shell.tsx, phone-auth-flow.tsx,
@@ -93,7 +92,8 @@ src/modules/identity/
 ```
 src/modules/platform/
   domain/         runtime-status.ts
-  infrastructure/ ephemeral-store.ts   (memory/Redis selector)
+  infrastructure/ ephemeral-store.ts    (memory/Redis selector)
+                  postgres-config.ts     (shared pool config)
 ```
 
 `platform` holds cross-cutting concerns that are not owned by a single product domain. It
@@ -113,13 +113,33 @@ It is currently flat. When it grows real behaviour (data fetching, personalizati
 be split into the standard layers; until then a flat module is acceptable because it has no
 application or infrastructure logic to separate.
 
+### 5.4 `content` — implemented, fully layered
+
+```
+src/modules/content/
+  domain/         content-types.ts, content-errors.ts, content-pagination.ts
+  application/    content-service.ts      (list/get use cases, cursor codec)
+  infrastructure/ content-repository.ts   (driver selector)
+                  content-store.ts        (in-memory repository)
+                  postgres-content-repository.ts
+  api/            content-http.ts         (response + error shaping)
+  ui/             content-views.tsx       (server-safe presentational components)
+```
+
+`content` owns the research-comprehension read path. It depends on `platform` for the shared
+Postgres pool config and on nothing else at module level; it does not import `identity`. It
+is the second fully-layered module after `identity` and should be read alongside it when
+adding a new domain.
+
 ## 6. Cross-Module Rules
 
 Current dependency edges (verified in code):
 
-- `app/**` (routes, pages) depends on `identity`, `platform`, and `experience`.
+- `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, and `content`.
 - `identity` depends on `platform` for the ephemeral store (`auth-rate-limit.ts` imports
   `getEphemeralStore`).
+- `content` depends on `platform` for the shared Postgres pool config
+  (`postgres-content-repository.ts` imports `getPostgresPoolConfig`).
 - `experience` imports `identity` **types only** (`UserProfile`) for presentational props.
 
 Rules that follow:

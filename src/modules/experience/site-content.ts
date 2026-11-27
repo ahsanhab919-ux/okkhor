@@ -41,6 +41,7 @@ export type VerificationStep = {
 
 export const publicNavItems: NavItem[] = [
   { label: "All Episodes", href: "/" },
+  { label: "Research", href: "/content" },
   { label: "Scholars", href: "/scholar-verify" },
   { label: "Community", href: "/community" },
 ];

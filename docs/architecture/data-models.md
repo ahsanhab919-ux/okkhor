@@ -8,13 +8,15 @@
 
 Define the data the system owns: the domain types the code speaks in, the PostgreSQL schema
 that persists them, the in-memory equivalent used in tests, and the optional ephemeral store.
-This is the schema of record for `auth_*` tables and the contract every repository
-implementation must satisfy.
+This is the schema of record for the `auth_*` tables and `content_items`, and the contract
+every repository implementation must satisfy.
 
 ## 2. Domain Types
 
-Defined in `src/modules/identity/domain/auth-types.ts`. Types are the shared language;
-storage is an implementation detail behind `AuthRepository`.
+Identity types are defined in `src/modules/identity/domain/auth-types.ts` (§2.1–§2.5) and
+content types in `src/modules/content/domain/content-types.ts` (§2.6). Types are the shared
+language; storage is an implementation detail behind each module's repository interface
+(`AuthRepository`, `ContentRepository`).
 
 ### 2.1 `UserProfile`
 
@@ -66,11 +68,39 @@ strips it before any value is returned to a route or a client.
 raw token values are only ever held in memory or in httpOnly cookies — persisted state keeps
 the SHA-256 *hash* of the refresh token, and reset tokens are likewise only stored hashed.
 
+### 2.6 `ResearchItem` (content)
+
+The published research-comprehension unit. Defined in
+`src/modules/content/domain/content-types.ts`.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | UUID, primary key, used as the `/content/[id]` path segment |
+| `title` | `string` | Source-language title |
+| `abstract` | `string` | Source-language abstract |
+| `summaryBn` | `string` | Bangla comprehension summary (the product value) |
+| `sourceLanguage` | `string` | Abstract language, defaults to `en` |
+| `tags` | `string[]` | Stored as `jsonb` |
+| `status` | `"draft" \| "published"` | Only `published` items are listable/readable |
+| `sourceUrl` | `string`, optional | External source link |
+| `publishedAt` | `string` (ISO), optional | Keyset-pagination sort key |
+| `createdAt` | `string` (ISO) | |
+| `updatedAt` | `string` (ISO) | |
+
+Related types: `ResearchItemStatus`, `ContentRepository`
+(`listPublishedItems`, `getPublishedItemById`, `createItem`, `updateItem`), and the
+pagination types `ContentCursor = { publishedAt, id }`, `ListPublishedItemsOptions`, and
+`ListPublishedItemsResult`. Write methods exist for the seed script and future authoring;
+slice 1 exposes no write endpoints.
+
 ## 3. PostgreSQL Schema
 
-Created by `migrations/20260718222000_create_auth_identity_tables.cjs`. Timestamps are stored
-as ISO-8601 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
-portability is preferred over database-side timezone arithmetic; `roles` is `jsonb`.
+The `auth_*` tables (§3.1–§3.3) are created by
+`migrations/20260718222000_create_auth_identity_tables.cjs`; `content_items` (§3.4) by
+`migrations/20261128090000_create_content_items.cjs`. Timestamps are stored as ISO-8601
+`text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
+portability is preferred over database-side timezone arithmetic; `roles` and `tags` are
+`jsonb`.
 
 ### 3.1 `auth_users`
 
@@ -111,14 +141,36 @@ Index: `auth_sessions_user_id_idx` on `user_id` (supports "revoke all sessions f
 | `expires_at` | `text` | not null |
 | `used_at` | `text` | nullable |
 
-### 3.4 Migration Operations
+### 3.4 `content_items`
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `id` | `text` | primary key |
+| `title` | `text` | not null |
+| `abstract` | `text` | not null |
+| `summary_bn` | `text` | not null |
+| `source_language` | `text` | not null, default `en` |
+| `tags` | `jsonb` | not null, default `[]` |
+| `status` | `text` | not null, default `draft` |
+| `source_url` | `text` | nullable |
+| `published_at` | `text` | nullable |
+| `created_at` | `text` | not null |
+| `updated_at` | `text` | not null |
+
+Index: `content_items_status_published_at_idx` on `(status, published_at)` to support the
+list query. The list read is a keyset query — `WHERE status = 'published' ORDER BY
+published_at DESC, id DESC` — with the cursor encoded as `"<publishedAt>|<id>"`.
+
+### 3.5 Migration Operations
 
 Managed by `node-pg-migrate` (config keys kebab-case, `single-transaction: true`). See
-`docs/configuration.md` for commands. The `down` migration drops the three tables in
+`docs/configuration.md` for commands. The auth migration's `down` drops the three tables in
 dependent order (`auth_password_resets`, then the index, then `auth_sessions`, then
-`auth_users`).
+`auth_users`); the content migration's `down` drops the index, then `content_items`.
 
 ## 4. In-Memory Store
+
+### 4.1 Identity store
 
 Defined in `src/modules/identity/infrastructure/auth-store.ts`. `AuthStore` mirrors the
 schema with four `Map`s:
@@ -133,6 +185,15 @@ schema with four `Map`s:
 `listSessionsByUserId` and `getPasswordResetByTokenHash` are linear scans over the maps,
 which is correct at test scale. The store is cached on `globalThis` so hot reloads do not
 lose data, and `resetAuthStoreForTesting()` replaces it between tests.
+
+### 4.2 Content store
+
+Defined in `src/modules/content/infrastructure/content-store.ts`. `ContentStore` holds a
+single `items: Map<string, ResearchItem>` keyed by `id`. `listPublishedItems` filters to
+`status === "published"`, sorts by `publishedAt`/`id` descending, applies the keyset cursor,
+and slices to the requested limit; `getPublishedItemById` returns `undefined` for drafts or
+unknown ids. Like the identity store it is cached on `globalThis`
+(`__okkhorContentStore`) and replaced between tests by `resetContentStoreForTesting()`.
 
 ## 5. Persistence Driver Selection
 
@@ -173,10 +234,29 @@ rather than losing durable data. The interface is intentionally tiny:
 
 ### 5.3 PostgreSQL connection
 
-`postgres-config.ts` reads pool settings from the environment:
+`src/modules/platform/infrastructure/postgres-config.ts` holds the shared pool config and
+reads pool settings from the environment:
 `DB_POOL_MAX` (default 10), `DB_POOL_IDLE_TIMEOUT_MS` (10 000),
 `DB_POOL_CONNECTION_TIMEOUT_MS` (5 000), `DB_POOL_MAX_USES` (7 500), and
 `allowExitOnIdle` in non-production.
+
+### 5.4 Content repository
+
+`src/modules/content/infrastructure/content-repository.ts` is the single decision point for
+the `content` module, using its own driver variable:
+
+```
+CONTENT_STORAGE_DRIVER = auto | memory | postgres   (default: auto)
+  memory   → memory repository
+  postgres → postgres repository
+  auto     → NODE_ENV === "test"        → memory
+             else DATABASE_URL present  → postgres
+             else                       → throw (misconfiguration)
+```
+
+Both implementations satisfy the `ContentRepository` interface. Application code calls
+`getContentRepository()`; the driver is independent of `AUTH_STORAGE_DRIVER` so the two
+modules can be pointed at different stores.
 
 ## 6. Data Classification and Handling
 
@@ -220,6 +300,10 @@ Automatic retention jobs are future work, not a current behaviour.
 - `src/modules/identity/domain/auth-types.ts` — domain types
 - `src/modules/identity/infrastructure/auth-store.ts` — in-memory store
 - `src/modules/identity/infrastructure/postgres-auth-repository.ts` — SQL implementation
+- `migrations/20261128090000_create_content_items.cjs` — `content_items` schema of record
+- `src/modules/content/domain/content-types.ts` — content domain types
+- `src/modules/content/infrastructure/content-store.ts` — in-memory content store
+- `src/modules/content/infrastructure/postgres-content-repository.ts` — content SQL implementation
 - `docs/configuration.md` — connection env vars and migration commands
 - `docs/adr/ADR-004-adopt-postgresql-as-primary-source-of-truth.md`
 - `docs/adr/ADR-005-adopt-redis-for-cache-and-ephemeral-state.md`
