@@ -4,9 +4,19 @@
 
 1. Copy `.env.example` to `.env.local`.
 2. Set a real `AUTH_JWT_SECRET`.
-3. Set `AUTH_STORAGE_DRIVER=postgres` when validating the PostgreSQL-backed auth path.
+3. Set `AUTH_STORAGE_DRIVER=postgres` (the example default) for durable work; use `memory` only for non-durable local work.
 4. Set `DATABASE_URL` to your local PostgreSQL instance.
 5. Run `npm run db:migrate` before `npm run dev`.
+
+## Local PostgreSQL
+
+`infrastructure/docker-compose.yml` provisions a local PostgreSQL instance that matches the `DATABASE_URL` example below.
+
+- start: `docker compose -f infrastructure/docker-compose.yml up -d`
+- stop: `docker compose -f infrastructure/docker-compose.yml down`
+- stop and delete data: `docker compose -f infrastructure/docker-compose.yml down -v`
+
+The instance listens on `localhost:5432` with database `okkhor`, user `postgres`, and password `postgres`. Data lives in the `okkhor-postgres-data` volume, so it survives `down` and container restarts.
 
 ## Variables
 
@@ -18,9 +28,10 @@
 ### `AUTH_STORAGE_DRIVER`
 
 - supported values: `auto`, `memory`, `postgres`
-- `auto` selects PostgreSQL when `DATABASE_URL` is present and falls back to memory otherwise
-- `memory` forces the CI-safe in-memory repository
-- `postgres` forces the PostgreSQL repository and requires `DATABASE_URL`
+- `postgres` forces the PostgreSQL repository and requires `DATABASE_URL`; this is the example default
+- `memory` forces the in-memory repository and is only valid for local, non-durable work and tests
+- `auto` uses `memory` when `NODE_ENV=test`, and PostgreSQL when `DATABASE_URL` is present
+- outside tests, `auto` or `postgres` without a `DATABASE_URL` fails loudly instead of falling back to `memory`
 
 ### `DATABASE_URL`
 
