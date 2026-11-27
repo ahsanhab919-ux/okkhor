@@ -1,6 +1,6 @@
 # ADR-005: Adopt Redis for Cache and Ephemeral State
 
-- Status: `Proposed`
+- Status: `Accepted`
 - Date: `2026-11-27`
 - Owners: `Engineering Lead`
 - Deciders: `Engineering Lead`, `Founding Product Team`

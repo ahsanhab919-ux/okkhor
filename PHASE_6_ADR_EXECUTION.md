@@ -3,7 +3,7 @@
 Version: `1.0`  
 Phase: `ADR-005 Bootstrap`  
 Execution Mode: `Strictly Sequential`  
-Status: `In Progress`
+Status: `Completed`
 
 ## 1. Phase Objective
 
@@ -110,9 +110,20 @@ The current phase deliverable is complete only when:
 
 ### Step 4: Approval request
 
-- Status: `Pending`
-- Approval required before:
-  - promoting `ADR-005` from `Proposed` to `Accepted`
+- Status: `Approved` (2026-11-27)
+- Approval scope:
+  - promote `ADR-005` from `Proposed` to `Accepted`
+- Approval deferred by decision:
   - adding `Redis` to `infrastructure/docker-compose.yml`
   - introducing the first cache or ephemeral workload behind a boundary with a fallback
+- Approval required before:
   - creating `ADR-006`
+
+### Step 5: ADR-005 promotion
+
+- Status: `Passed`
+- Findings:
+  - `ADR-005` status changed from `Proposed` to `Accepted`
+  - provisioning and the first cache workload remain deliberately out of scope for this phase
+- Outcome:
+  - the phase deliverable is accepted, and the phase is complete
