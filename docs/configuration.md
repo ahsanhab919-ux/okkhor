@@ -7,6 +7,7 @@
 3. Set `AUTH_STORAGE_DRIVER=postgres` (the example default) for durable work; use `memory` only for non-durable local work.
 4. Set `DATABASE_URL` to your local PostgreSQL instance.
 5. Run `npm run db:migrate` before `npm run dev`.
+6. Redis is optional. To exercise the Redis path locally, start it (see below) and leave `EPHEMERAL_STORAGE_DRIVER=auto` with `REDIS_URL` set. Without `REDIS_URL` the application falls back to in-memory ephemeral state.
 
 ## Local PostgreSQL
 
@@ -17,6 +18,29 @@
 - stop and delete data: `docker compose -f infrastructure/docker-compose.yml down -v`
 
 The instance listens on `localhost:5432` with database `okkhor`, user `postgres`, and password `postgres`. Data lives in the `okkhor-postgres-data` volume, so it survives `down` and container restarts.
+
+## Local Redis
+
+`infrastructure/docker-compose.yml` also provisions a local Redis instance that matches the `REDIS_URL` example below. It is optional: the application runs without it.
+
+- start: `docker compose -f infrastructure/docker-compose.yml up -d redis`
+- stop: `docker compose -f infrastructure/docker-compose.yml down`
+
+The instance listens on `localhost:6379`. Persistence is deliberately disabled (no RDB snapshots, no AOF), because Redis holds cache and ephemeral state only and is never the source of truth (`ADR-005`).
+
+## Ephemeral State
+
+Ephemeral state is reached through one boundary in `src/modules/platform/infrastructure/ephemeral-store.ts`. Every key class it serves is short-lived, reconstructible, or safe to drop, and losing the store must degrade behaviour rather than lose data.
+
+Key convention: every key is namespaced `okkhor:<class>:<name>[:<hashed-identifier>]`. Identifiers that could carry personal data, such as a client address, are hashed before they reach a key so raw values never appear in the keyspace or in logs.
+
+| Key class | Namespace | TTL | Invalidation |
+| --- | --- | --- | --- |
+| Auth rate-limit counter (login) | `okkhor:ratelimit:auth:login:<hash>` | `300s` | automatic expiry; window budget is `10` attempts |
+| Auth rate-limit counter (register) | `okkhor:ratelimit:auth:register:<hash>` | `3600s` | automatic expiry; window budget is `5` attempts |
+| Auth rate-limit counter (password reset) | `okkhor:ratelimit:auth:password-reset:<hash>` | `3600s` | automatic expiry; window budget is `5` attempts |
+
+TTL defaults are set on first write and are never extended on later writes, so a counter window always closes a fixed interval after it started. No manual invalidation is required; every key class expires on its own and is safe to lose at any time.
 
 ## Variables
 
@@ -57,6 +81,20 @@ The instance listens on `localhost:5432` with database `okkhor`, user `postgres`
 
 - maximum reuse count per connection before recycling
 - default: `7500`
+
+### `EPHEMERAL_STORAGE_DRIVER`
+
+- supported values: `auto`, `memory`, `redis`
+- `redis` forces the Redis-backed ephemeral store and requires `REDIS_URL`
+- `memory` forces the in-memory ephemeral store; state is process-local and not shared across instances
+- `auto` (the default) uses `memory` when `NODE_ENV=test`, Redis when `REDIS_URL` is present, and `memory` otherwise
+- Redis is optional: the application runs with or without it, and falls back to `memory` when `REDIS_URL` is unset
+
+### `REDIS_URL`
+
+- Redis connection string for the ephemeral store (cache, rate-limit counters, and short-lived state)
+- local example: `redis://localhost:6379`
+- never the source of truth; unset it to run without Redis
 
 ## Migration Operations
 

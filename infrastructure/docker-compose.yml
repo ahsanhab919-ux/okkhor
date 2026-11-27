@@ -19,5 +19,20 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: okkhor-redis
+    restart: unless-stopped
+    # Cache and ephemeral state only (ADR-005): persistence stays disabled so nothing
+    # durable can quietly come to rely on this instance.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   okkhor-postgres-data:
