@@ -18,7 +18,7 @@ export function getPostgresConnectionString() {
   const connectionString = process.env.DATABASE_URL;
 
   if (!connectionString) {
-    throw new Error("DATABASE_URL is required when auth storage uses the postgres driver.");
+    throw new Error("DATABASE_URL is required when a module uses the postgres driver.");
   }
 
   return connectionString;

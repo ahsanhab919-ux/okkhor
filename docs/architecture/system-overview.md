@@ -23,9 +23,10 @@ At the current stage the deployed product is intentionally narrow:
 - a public landing experience (`/`)
 - a phone-first authentication surface (`/auth`)
 - two protected placeholders (`/community`, `/scholar-verify`)
-- a JSON API for identity and a health probe
+- a public research-comprehension read path (`/content`, `/content/[id]`)
+- JSON APIs for identity and content, and a health probe
 
-Deeper domains named in `ADR-001` (Content, Video Processing, Video Delivery, Search,
+Deeper domains named in `ADR-001` (Video Processing, Video Delivery, Search,
 Recommendations, Rules Engine, Localization, Analytics, Operational Intelligence) are
 **not yet implemented**. They are planned and will be added as modules under the same
 architecture, not as separate deployments.
@@ -76,6 +77,7 @@ direction, and `docs/adr/ADR-001-adopt-modular-monolith.md` for the decision rec
                     │                   │  identity            │   │
                     │                   │  platform            │   │
                     │                   │  experience          │   │
+                    │                   │  content             │   │
                     │                   └──────┬───────┬───────┘   │
                     └──────────────────────────┼───────┼───────────┘
                                                │       │
@@ -83,7 +85,8 @@ direction, and `docs/adr/ADR-001-adopt-modular-monolith.md` for the decision rec
                         │ PostgreSQL (primary)   │   │ Redis (optional)    │
                         │ auth_users,            │   │ rate-limit counters │
                         │ auth_sessions,         │   │ (degrades to memory)│
-                        │ auth_password_resets   │   └─────────────────────┘
+                        │ auth_password_resets,  │   └─────────────────────┘
+                        │ content_items          │
                         └────────────────────────┘
 ```
 
@@ -122,8 +125,9 @@ be enforced at server boundaries inside the monolith).
 | `identity` | `src/modules/identity/**` | Registration, login, sessions, password reset, route protection | Implemented |
 | `platform` | `src/modules/platform/**` | Runtime status/highlights and the cross-cutting ephemeral store | Implemented |
 | `experience` | `src/modules/experience/**` | Public site content and presentational/UI building blocks | Implemented |
+| `content` | `src/modules/content/**` | Research-item comprehension: published list/detail read path | Implemented (read path) |
 
-Planned domains (Content, Search, Recommendations, Localization, Analytics, Video, Rules
+Planned domains (Search, Recommendations, Localization, Analytics, Video, Rules
 Engine, Operational Intelligence) do not exist yet and must not be simulated ahead of a
 triggering workload. See `ADR_IMPLEMENTATION_GAP_AUDIT.md` for the current per-ADR status.
 
@@ -134,6 +138,7 @@ triggering workload. See `ADR_IMPLEMENTATION_GAP_AUDIT.md` for the current per-A
 - [data-models.md](data-models.md) — domain types and the PostgreSQL/memory persistence model
 - [server-vs-client-components.md](server-vs-client-components.md) — rendering boundary rules
 - [authentication-backend-slice.md](authentication-backend-slice.md) — identity deep dive
+- [content-comprehension-slice.md](content-comprehension-slice.md) — the content read-path slice
 - [nbu-ux-and-phone-first-identity.md](nbu-ux-and-phone-first-identity.md) — NB-UX and identity UX
 - `docs/adr/` — the decision records this overview summarizes
 

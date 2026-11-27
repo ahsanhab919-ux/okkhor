@@ -1,4 +1,4 @@
-import { getPostgresConnectionString, getPostgresPoolConfig } from "@/src/modules/identity/infrastructure/postgres-config";
+import { getPostgresConnectionString, getPostgresPoolConfig } from "@/src/modules/platform/infrastructure/postgres-config";
 
 describe("postgres config", () => {
   const originalEnv = process.env;

@@ -20,6 +20,7 @@
     "db:migrate:down": "node --env-file=.env.local ./node_modules/node-pg-migrate/bin/node-pg-migrate.js down --config-file node-pg-migrate.config.cjs",
     "db:migrate:redo": "node --env-file=.env.local ./node_modules/node-pg-migrate/bin/node-pg-migrate.js redo --config-file node-pg-migrate.config.cjs",
     "db:verify:postgres": "node --env-file=.env.local --import tsx ./scripts/verify-postgres-auth.ts",
+    "db:seed:content": "node --env-file=.env.local --import tsx ./scripts/seed-content.ts",
     "ci": "npm run lint && npm run typecheck && npm run test:ci && npm run build"
   },
   "dependencies": {
