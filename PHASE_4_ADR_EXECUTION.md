@@ -98,7 +98,9 @@ The current phase deliverable is complete only when:
 
 ### Step 4: Approval request
 
-- Status: `Ready`
+- Status: `Approved`
 - Approval required before:
   - creating `ADR-004`
   - starting storage, CDN, or media pipeline scaffolding based on this ADR
+- Outcome:
+  - approval granted on `2026-11-27`; `ADR-004` work proceeds under `PHASE_5_ADR_EXECUTION.md`
