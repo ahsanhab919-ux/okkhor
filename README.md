@@ -32,7 +32,7 @@ Open `http://localhost:3000` and verify the health endpoint at `http://localhost
 - Identity baseline: `phone-number-first`
 - Backend credential path: `phone + password`
 - Session model: `JWT access cookie + JWT refresh cookie`
-- Persistence drivers: `memory` by default, `PostgreSQL` automatically when `DATABASE_URL` is configured
+- Persistence drivers: `PostgreSQL` by default, `memory` only for tests and non-durable local work
 - Schema management: `node-pg-migrate` versioned migrations with rollback support
 - Frontend session behavior: `session lookup -> refresh retry -> protected workspace restore`
 - Auth gateway behavior: `safe next-path validation -> auth-page refresh recovery -> redirect to requested protected route`
@@ -43,8 +43,10 @@ Open `http://localhost:3000` and verify the health endpoint at `http://localhost
 ## Environment Notes
 
 - copy `.env.example` to `.env.local` before local PostgreSQL validation
-- `AUTH_STORAGE_DRIVER=auto` keeps tests and zero-config local runs on the in-memory driver
-- `AUTH_STORAGE_DRIVER=postgres` requires `DATABASE_URL`
+- `AUTH_STORAGE_DRIVER=postgres` is the example default and requires `DATABASE_URL`
+- `AUTH_STORAGE_DRIVER=memory` is only for tests and non-durable local work
+- `AUTH_STORAGE_DRIVER=auto` uses memory under `NODE_ENV=test` and PostgreSQL when `DATABASE_URL` is present
+- outside tests, a missing `DATABASE_URL` fails loudly instead of falling back to memory
 - run `npm run db:migrate` before using the PostgreSQL-backed auth path
 - run `npm run db:verify:postgres` to validate connectivity, privileges, CRUD, rollback, and pool reuse
 

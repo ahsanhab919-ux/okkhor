@@ -16,8 +16,9 @@ This slice now supports pluggable persistence so the auth module can stay CI-saf
 
 Current runtime behavior:
 
-- `memory` driver for tests and zero-config local execution
+- `memory` driver for tests and explicitly requested non-durable local execution
 - `PostgreSQL` driver when `DATABASE_URL` is present or `AUTH_STORAGE_DRIVER=postgres`
+- a missing `DATABASE_URL` outside tests is a hard failure, not a silent fallback
 - schema is managed through `node-pg-migrate`, not repository startup DDL
 
 ## Design Alignment
@@ -106,14 +107,16 @@ Unauthenticated requests are redirected to `/auth?next=...`.
 
 ### Memory Driver
 
-- default for `NODE_ENV=test`
-- default fallback when no `DATABASE_URL` is configured
-- preserves the current fast bootstrap and CI path
+- used for `NODE_ENV=test`
+- selected explicitly with `AUTH_STORAGE_DRIVER=memory` for non-durable local work
+- no longer a fallback for a missing `DATABASE_URL`
+- preserves the fast bootstrap and CI path
 
 ### PostgreSQL Driver
 
+- the default through `AUTH_STORAGE_DRIVER=postgres`
 - activates automatically when `DATABASE_URL` is available unless `AUTH_STORAGE_DRIVER=memory`
-- can be forced with `AUTH_STORAGE_DRIVER=postgres`
+- a missing `DATABASE_URL` outside tests is a hard failure rather than a silent fallback
 - persists users, sessions, and password reset records across process restarts
 - expects migrations to create and version these tables before app startup:
   - `auth_users`
