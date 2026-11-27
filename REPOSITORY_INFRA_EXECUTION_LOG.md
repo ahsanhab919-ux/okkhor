@@ -218,6 +218,17 @@ Status:
 - blocked force pushes to `main`
 - left administrator enforcement disabled so bypass remains limited to repository administrators only
 
+### 2026-11-27 - Development Branch Sync and Protection
+
+- fast-forwarded `development` from `650ba7e` to `65fc825` so the integration branch matches `main` and includes the public production app scaffold
+- applied branch protection to `development` per `docs/standards/BRANCH_PROTECTION_RULES.md`:
+  - required pull request with `1` required approval
+  - required code owner review with automatic stale-review dismissal
+  - required successful checks: `repository-standards`, `static-analysis`, `tests`, `build`, `dependency-audit`
+  - blocked force pushes and branch deletion
+- kept administrator enforcement disabled to match `main`
+- verified both `main` and `development` report `protected: true` through the GitHub API
+
 ## 7. Self-Inspection Checklist
 
 ### Phase A
@@ -281,4 +292,4 @@ Completed successfully:
 2. Add a secondary non-admin validation account or bot-owned sandbox fork to execute the blocked negative tests for direct push, force push, and merge-without-approval behavior
 3. Extend CI with e2e browser coverage once the product surface expands beyond the current health-check scaffold
 4. Normalize labels by optionally removing overlapping default labels such as `bug`, `enhancement`, and `documentation` if the team wants only the namespaced label system
-5. Mirror the same protections to `development` if that branch becomes an active integration branch rather than a dormant reference branch
+5. Mirror the same protections to `development` if that branch becomes an active integration branch rather than a dormant reference branch - completed on `2026-11-27`; `development` now tracks `main` and mirrors its protections
