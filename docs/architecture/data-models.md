@@ -84,20 +84,26 @@ The published research-comprehension unit. Defined in
 | `status` | `"draft" \| "published"` | Only `published` items are listable/readable |
 | `sourceUrl` | `string`, optional | External source link |
 | `publishedAt` | `string` (ISO), optional | Keyset-pagination sort key |
+| `authorId` | `string`, optional | Set on create; the authoring user (see `content-authoring-slice.md`) |
+| `updatedBy` | `string`, optional | Set on create and every update |
 | `createdAt` | `string` (ISO) | |
-| `updatedAt` | `string` (ISO) | |
+| `updatedAt` | `string` (ISO) | Doubles as the optimistic-concurrency token |
 
-Related types: `ResearchItemStatus`, `ContentRepository`
-(`listPublishedItems`, `getPublishedItemById`, `createItem`, `updateItem`), and the
-pagination types `ContentCursor = { publishedAt, id }`, `ListPublishedItemsOptions`, and
-`ListPublishedItemsResult`. Write methods exist for the seed script and future authoring;
-slice 1 exposes no write endpoints.
+Related types: `ResearchItemStatus`, `ContentAuthor` (`{ id, roles }`), `CreateItemInput`,
+`UpdateItemInput` (adds the optional `updatedAt` concurrency token), and `ContentRepository`
+(`listPublishedItems`, `listItems`, `getPublishedItemById`, `getItemById`, `createItem`,
+`updateItemIfUnchanged`). `listPublishedItems`/`getPublishedItemById` are the public read path
+(published only); `listItems`/`getItemById` are the authoring path and return drafts too.
+Pagination types: `ContentCursor = { publishedAt, id }`, `ListPublishedItemsOptions`,
+`ListPublishedItemsResult`.
 
 ## 3. PostgreSQL Schema
 
 The `auth_*` tables (§3.1–§3.3) are created by
 `migrations/20260718222000_create_auth_identity_tables.cjs`; `content_items` (§3.4) by
-`migrations/20261128090000_create_content_items.cjs`. Timestamps are stored as ISO-8601
+`migrations/20261128090000_create_content_items.cjs`, with the authorship columns added by
+`migrations/20261128100000_add_content_item_authorship.cjs` (see `content-authoring-slice.md`).
+Timestamps are stored as ISO-8601
 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
 portability is preferred over database-side timezone arithmetic; `roles` and `tags` are
 `jsonb`.
@@ -156,17 +162,21 @@ Index: `auth_sessions_user_id_idx` on `user_id` (supports "revoke all sessions f
 | `published_at` | `text` | nullable |
 | `created_at` | `text` | not null |
 | `updated_at` | `text` | not null |
+| `author_id` | `text` | nullable (existing seeded rows predate authoring) |
+| `updated_by` | `text` | nullable |
 
 Index: `content_items_status_published_at_idx` on `(status, published_at)` to support the
 list query. The list read is a keyset query — `WHERE status = 'published' ORDER BY
-published_at DESC, id DESC` — with the cursor encoded as `"<publishedAt>|<id>"`.
+published_at DESC, id DESC` — with the cursor encoded as `"<publishedAt>|<id>"`. The
+authoring view (`listItems`) reads every status ordered by `updated_at DESC, id DESC`.
 
 ### 3.5 Migration Operations
 
 Managed by `node-pg-migrate` (config keys kebab-case, `single-transaction: true`). See
 `docs/configuration.md` for commands. The auth migration's `down` drops the three tables in
 dependent order (`auth_password_resets`, then the index, then `auth_sessions`, then
-`auth_users`); the content migration's `down` drops the index, then `content_items`.
+`auth_users`); the content migration's `down` drops the index, then `content_items`; the
+authorship migration's `down` drops `author_id` and `updated_by`.
 
 ## 4. In-Memory Store
 
@@ -192,8 +202,12 @@ Defined in `src/modules/content/infrastructure/content-store.ts`. `ContentStore`
 single `items: Map<string, ResearchItem>` keyed by `id`. `listPublishedItems` filters to
 `status === "published"`, sorts by `publishedAt`/`id` descending, applies the keyset cursor,
 and slices to the requested limit; `getPublishedItemById` returns `undefined` for drafts or
-unknown ids. Like the identity store it is cached on `globalThis`
-(`__okkhorContentStore`) and replaced between tests by `resetContentStoreForTesting()`.
+unknown ids. The authoring methods mirror the read path: `listItems` returns every status
+sorted by `updatedAt`/`id` descending, `getItemById` returns drafts too, and
+`updateItemIfUnchanged` writes only when the stored `updatedAt` matches the expected value
+(returning `false` otherwise, which the service turns into a `409`). Like the identity store
+it is cached on `globalThis` (`__okkhorContentStore`) and replaced between tests by
+`resetContentStoreForTesting()`.
 
 ## 5. Persistence Driver Selection
 
@@ -301,6 +315,7 @@ Automatic retention jobs are future work, not a current behaviour.
 - `src/modules/identity/infrastructure/auth-store.ts` — in-memory store
 - `src/modules/identity/infrastructure/postgres-auth-repository.ts` — SQL implementation
 - `migrations/20261128090000_create_content_items.cjs` — `content_items` schema of record
+- `migrations/20261128100000_add_content_item_authorship.cjs` — authorship columns
 - `src/modules/content/domain/content-types.ts` — content domain types
 - `src/modules/content/infrastructure/content-store.ts` — in-memory content store
 - `src/modules/content/infrastructure/postgres-content-repository.ts` — content SQL implementation

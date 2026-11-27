@@ -227,8 +227,9 @@ then PostgreSQL) → endpoints → pages → seed → tests → docs. See
 [api-contracts.md](api-contracts.md) §4.9–§4.10, [data-models.md](data-models.md) §2.6/§3.4/§5.4,
 and [module-boundaries.md](module-boundaries.md) §5.4 for the shipped surface.
 
-Next step is the **authoring/write slice** (create/update endpoints, an authoring UI, and a real
-editorial content source) or the **search slice**; each is a new design note and must not start
-until its own Definition of Ready is accepted. The authoring/write slice is specified in
-[content-authoring-slice.md](content-authoring-slice.md). Slice 1 deliberately stops at the read
-path and triggers none of the deferred infrastructure ADRs (§9).
+The **authoring/write slice** is now implemented on top of this read path —
+[content-authoring-slice.md](content-authoring-slice.md) adds the write endpoints, the
+`/studio` authoring UI, and a real editorial path, and publishing an item from `/studio` makes
+it appear here on `/content`. The remaining next step is the **search slice**, which is a new
+design note that must not start until its own Definition of Ready is accepted. Slice 1
+deliberately stops at the read path and triggers none of the deferred infrastructure ADRs (§9).

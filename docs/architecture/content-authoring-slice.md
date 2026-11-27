@@ -1,6 +1,6 @@
 # Content Authoring Slice
 
-- Status: `Accepted` (Definition of Ready accepted — decisions recorded in §13; not yet implemented)
+- Status: `Implemented` (authoring/write path; Definition of Ready accepted in §2, decisions recorded in §13)
 - Related ADRs: `ADR-001`, `ADR-002`, `ADR-004`, `ADR-009`
 - Owner: `Engineering Lead`
 - Handbook: `ENGINEERING_HANDBOOK.md` §7.2 (Definition of Ready), §7.3 (Definition of Done)
@@ -14,7 +14,9 @@ document is the design/architecture note and Definition of Ready for the **secon
 slice — authoring/write** — which lets authorised users create, edit, and publish research
 items through the product itself.
 
-Everything is a proposal until §2 is accepted; the open questions are resolved in §13.
+The slice is now **implemented**: the Definition of Ready in §2 was accepted, the open
+questions are resolved in §13, and the acceptance criteria in §3 are met. §4 records what
+stays explicitly out of scope.
 
 ## 2. Definition of Ready (`§7.2`)
 
@@ -34,19 +36,19 @@ Do not start implementation until this section is accepted. (It has been accepte
 (a `scholar` or `admin`) can author a research item and publish it, and the item then appears
 on the public `/content` read path built in slice 1.
 
-Acceptance criteria:
+Acceptance criteria (all met):
 
-- [ ] Authorised users (`scholar`, `admin`) can create a research item as a `draft` via the API.
-- [ ] Authorised users can edit an existing item, including transitioning `draft` → `published`.
-- [ ] Publishing sets `publishedAt` automatically; the item then appears on `/content`.
-- [ ] Unauthenticated writes return `401`; authenticated non-authors (`learner`) return `403`.
-- [ ] Invalid payloads return `400` with the standard error envelope.
-- [ ] A stale write (concurrent edit) returns `409` and does not overwrite the newer version.
-- [ ] An authoring UI exists at `/studio`, gated to `scholar`/`admin`, that lists drafts and
+- [x] Authorised users (`scholar`, `admin`) can create a research item as a `draft` via the API.
+- [x] Authorised users can edit an existing item, including transitioning `draft` → `published`.
+- [x] Publishing sets `publishedAt` automatically; the item then appears on `/content`.
+- [x] Unauthenticated writes return `401`; authenticated non-authors (`learner`) return `403`.
+- [x] Invalid payloads return `400` with the standard error envelope.
+- [x] A stale write (concurrent edit) returns `409` and does not overwrite the newer version.
+- [x] An authoring UI exists at `/studio`, gated to `scholar`/`admin`, that lists drafts and
       published items and lets an author create and edit one.
-- [ ] `content_items` records authorship (`author_id`, `updated_by`) via a migration with a
+- [x] `content_items` records authorship (`author_id`, `updated_by`) via a migration with a
       working `down`.
-- [ ] Unit tests cover the input schemas and the service (role denial, publish transition,
+- [x] Unit tests cover the input schemas and the service (role denial, publish transition,
       optimistic conflict); integration tests cover the write routes and the migration.
 
 ## 4. Scope
