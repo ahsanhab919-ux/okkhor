@@ -60,3 +60,6 @@ generated/
 
 # Optional local infra files
 docker-compose.override.yml
+
+# Unrelated nested project (separate repository)
+shothik-verification/
