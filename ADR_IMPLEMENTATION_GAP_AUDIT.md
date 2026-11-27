@@ -31,7 +31,7 @@ chosen from evidence rather than assumption.
 | 005 | Adopt Redis for cache and ephemeral state | `Implemented` | n/a |
 | 006 | Adopt Qdrant for semantic discovery | `Not started` — deferred by design | No |
 | 007 | Adopt offline-first where client context requires it | `Not started` — deferred by design | No |
-| 008 | Adopt calendar-aware predictive operations | `Not started` — first step is actionable | Yes |
+| 008 | Adopt calendar-aware predictive operations | `Not started` — first step now recorded | Yes (docs done) |
 | 009 | Adopt phone-first identity and icon-driven NBU UX | `Implemented` | n/a |
 
 No ADR is blocked by an unbuilt prerequisite. The only gaps that can be closed today are
@@ -109,13 +109,15 @@ documentation (ADR-001, ADR-002) and the first recorded step of ADR-008.
 
 ### ADR-008 — Calendar-aware predictive operations
 
-- Status: `Not started`; the ADR's own first step is actionable now.
+- Status: `Not started`; the ADR's own first step is now recorded (see below).
 - Evidence of absence: no calendar, readiness, timezone, or recurrence code in `src/`; no
-  calendar-related migration; no readiness runbook in `docs/runbooks/` (which currently holds only
-  `INCIDENT_POSTMORTEM_TEMPLATE.md` and `README.md`).
-- Partial: `.github/ISSUE_TEMPLATE/operational_task.yml` exists, but the calendar model and the
-  readiness checklist that the ADR's first rollout step requires are not recorded in durable,
-  reviewable form.
+  calendar-related migration; at audit time `docs/runbooks/` held only
+  `INCIDENT_POSTMORTEM_TEMPLATE.md` and `README.md`.
+- Partial: `.github/ISSUE_TEMPLATE/operational_task.yml` exists.
+- Closed (first step): the calendar model and readiness checklist are now recorded in
+  `docs/architecture/operational-calendar.md`, and the operating procedure is
+  `docs/runbooks/regional-readiness.md`. Per the ADR's rollout Step 2, no scheduler, table, or
+  automation was built.
 
 ### ADR-009 — Phone-first identity and icon-driven NBU UX
 
@@ -130,7 +132,7 @@ documentation (ADR-001, ADR-002) and the first recorded step of ADR-008.
   `docs/architecture/nbu-ux-and-phone-first-identity.md`; rate limiting protects the phone auth
   routes; tests in `tests/unit/phone-auth.test.ts` and `tests/integration/auth-page.test.tsx`.
 
-## 5. Gaps that can be closed now
+## 5. Gaps that could be closed now (both closed)
 
 1. **Architecture documentation (ADR-001, ADR-002).** Write `docs/architecture/module-boundaries.md`
    (and, as the index already promises, `system-overview.md`, `api-contracts.md`, `data-models.md`),
@@ -143,6 +145,10 @@ documentation (ADR-001, ADR-002) and the first recorded step of ADR-008.
    confidence, impact, default timezone) and the readiness checklist in durable, reviewable form,
    and add readiness-runbook structure to `docs/runbooks/`. This is the ADR's own first step and is
    not blocked by anything.
+   - **Closed.** Recorded as `docs/architecture/operational-calendar.md` (event model, trigger
+     rule, and readiness checklist) and `docs/runbooks/regional-readiness.md` (the operating
+     runbook), with both indexes updated. No code, table, or scheduler was created, matching
+     `ADR-008` rollout Step 2.
 
 ## 6. Deferred by design — do not start yet
 
@@ -155,8 +161,21 @@ journey before any implementation, so building them now would violate the decisi
 
 ## 7. Recommended next work
 
-Based on the evidence above, the lowest-risk, unblocked next item is **architecture documentation
-for ADR-001 and ADR-002** (Section 5.1): it is already promised by the docs index, requires no
-infrastructure, and improves contributor onboarding. **ADR-008's first recorded step** (Section 5.2)
-is the natural follow-on. The ADR-003/006/007 items should stay deferred until their trigger
-workloads appear.
+Both closeable gaps identified by this audit are now closed:
+
+- **Section 5.1 (ADR-001/002 architecture documentation)** — written and merged.
+- **Section 5.2 (ADR-008 first recorded step)** — recorded in
+  `docs/architecture/operational-calendar.md` and `docs/runbooks/regional-readiness.md`.
+
+There is no remaining unblocked documentation gap. The next work is therefore **gated**, not
+chosen: pick it up only when its trigger appears.
+
+- **ADR-003 (R2)** — the first real media/asset workload.
+- **ADR-006 (Qdrant)** — the first semantic discovery workload.
+- **ADR-007 (offline-first)** — a named journey justified in a design document.
+- **ADR-008 build steps** — Steps 3–6 (calendar table, readiness view, reversible actions,
+  tests) once the first operational workload lands; assign the calendar/readiness owner first.
+
+Until one of those triggers exists, implementation work would violate the decisions. The only
+work that remains safe without a trigger is routine maintenance.
+
