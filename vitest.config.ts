@@ -19,4 +19,9 @@ export default defineConfig({
       include: ["src/**/*.ts", "src/**/*.tsx", "app/**/*.ts", "app/**/*.tsx"],
     },
   },
+  oxc: {
+    jsx: {
+      runtime: "automatic",
+    },
+  },
 });
