@@ -16,9 +16,9 @@
     "test:watch": "vitest",
     "test:ci": "vitest run --coverage",
     "db:migrate:create": "node-pg-migrate create --config-file node-pg-migrate.config.cjs --migration-file-language cjs",
-    "db:migrate": "node-pg-migrate up --config-file node-pg-migrate.config.cjs --envPath .env.local",
-    "db:migrate:down": "node-pg-migrate down --config-file node-pg-migrate.config.cjs --envPath .env.local",
-    "db:migrate:redo": "node-pg-migrate redo --config-file node-pg-migrate.config.cjs --envPath .env.local",
+    "db:migrate": "node --env-file=.env.local ./node_modules/node-pg-migrate/bin/node-pg-migrate.js up --config-file node-pg-migrate.config.cjs",
+    "db:migrate:down": "node --env-file=.env.local ./node_modules/node-pg-migrate/bin/node-pg-migrate.js down --config-file node-pg-migrate.config.cjs",
+    "db:migrate:redo": "node --env-file=.env.local ./node_modules/node-pg-migrate/bin/node-pg-migrate.js redo --config-file node-pg-migrate.config.cjs",
     "db:verify:postgres": "node --env-file=.env.local --import tsx ./scripts/verify-postgres-auth.ts",
     "ci": "npm run lint && npm run typecheck && npm run test:ci && npm run build"
   },

@@ -3,7 +3,7 @@
 Version: `1.0`  
 Phase: `ADR-004 Bootstrap`  
 Execution Mode: `Strictly Sequential`  
-Status: `In Progress`
+Status: `Completed`
 
 ## 1. Phase Objective
 
@@ -103,7 +103,43 @@ The current phase deliverable is complete only when:
 
 ### Step 4: Approval request
 
-- Status: `Ready`
+- Status: `Approved` (2026-11-27)
 - Approval required before:
   - creating `ADR-005`
   - provisioning and verifying PostgreSQL for the identity slice based on this ADR
+
+### Step 5: Local PostgreSQL provisioning
+
+- Status: `Passed`
+- Artifact created:
+  - `infrastructure/docker-compose.yml`
+- Findings:
+  - provisions `postgres:17-alpine` on `localhost:5432` with database `okkhor`, a named volume, and a healthcheck
+  - the container reaches `healthy` and `pg_isready` accepts connections
+  - `docs/configuration.md` documents the start, stop, and data-reset commands
+
+### Step 6: Identity migration on a live instance
+
+- Status: `Passed`
+- Findings:
+  - `npm run db:migrate` applies `20260718222000_create_auth_identity_tables` against the live instance
+  - two silent failures in the migration tooling were fixed: the config file used camelCase keys that `node-pg-migrate` v9 ignores, and `--envPath` depends on an uninstalled `dotenv`, so migrations were recorded in the default `pgmigrations` table instead of `schema_migrations`
+  - the corrected config and a `node --env-file=.env.local` invocation record versions in `schema_migrations` as intended
+
+### Step 7: PostgreSQL full-link verification
+
+- Status: `Passed`
+- Findings:
+  - `npm run db:verify:postgres` passes against the live instance
+  - it verifies connectivity, the four required tables, table privileges, CRUD, transactional rollback, and connection-pool reuse
+
+### Step 8: Durable driver default and configuration
+
+- Status: `Passed`
+- Findings:
+  - `getAuthRepository()` no longer falls back to the in-memory store outside tests; a missing `DATABASE_URL` is now a hard failure
+  - the example environment defaults `AUTH_STORAGE_DRIVER` to `postgres`
+  - `README.md`, `docs/configuration.md`, and `docs/architecture/authentication-backend-slice.md` document the new default
+  - a runtime smoke test registered and logged in a user through the app against PostgreSQL, with the identity row and sessions persisted
+- Outcome:
+  - `ADR-004` rollout items 2 through 6 are satisfied against a local instance

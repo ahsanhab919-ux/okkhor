@@ -33,5 +33,7 @@ export function getAuthRepository(): AuthRepository {
     return getPostgresAuthRepository();
   }
 
-  return getMemoryAuthRepository();
+  throw new Error(
+    "Auth storage misconfiguration: DATABASE_URL is required outside test environments. Set DATABASE_URL, or set AUTH_STORAGE_DRIVER=memory for local, non-durable work.",
+  );
 }
