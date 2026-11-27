@@ -1,14 +1,13 @@
 module.exports = {
   db: {
-    databaseUrl: process.env.DATABASE_URL,
-    migrationsTable: "schema_migrations",
-    dir: "migrations",
+    "migrations-table": "schema_migrations",
+    "migrations-dir": "migrations",
     schema: "public",
-    createSchema: false,
-    createMigrationsSchema: false,
-    checkOrder: true,
+    "create-schema": false,
+    "create-migrations-schema": false,
+    "check-order": true,
     verbose: true,
-    singleTransaction: true,
-    advisoryLockMode: "fail",
+    "single-transaction": true,
+    "advisory-lock-mode": "fail",
   },
 };
