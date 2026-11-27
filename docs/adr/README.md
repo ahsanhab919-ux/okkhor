@@ -9,6 +9,10 @@ This directory stores Architecture Decision Records.
 - `ADR-002-adopt-nextjs-app-router.md`
 - `ADR-003-adopt-cloudflare-r2-for-assets.md`
 - `ADR-004-adopt-postgresql-as-primary-source-of-truth.md`
+- `ADR-005-adopt-redis-for-cache-and-ephemeral-state.md`
+- `ADR-006-adopt-qdrant-for-semantic-discovery.md`
+- `ADR-007-adopt-offline-first-where-client-context-requires-it.md`
+- `ADR-008-adopt-calendar-aware-predictive-operations.md`
 - `ADR-009-adopt-phone-first-identity-and-icon-driven-nbu-ux.md`
 
 ## Naming Convention
