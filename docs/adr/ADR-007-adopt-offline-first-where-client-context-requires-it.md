@@ -1,6 +1,6 @@
 # ADR-007: Adopt Offline-First Support Where Client Context Requires It
 
-- Status: `Proposed`
+- Status: `Accepted`
 - Date: `2026-11-27`
 - Owners: `Engineering Lead`
 - Deciders: `Engineering Lead`, `Founding Product Team`
