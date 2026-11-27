@@ -6,6 +6,7 @@ This directory contains the engineering documentation baseline for `Journal Club
 
 - `architecture/` - system design, boundaries, flows, and context
 - `adr/` - Architecture Decision Records and ADR templates
+- `configuration.md` - environment variables, migration commands, and local validation setup
 - `runbooks/` - operational procedures, postmortems, and incident guidance
 - `standards/` - engineering process standards and supporting practices
 
