@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { Pool } from "pg";
 
-import { getPostgresPoolConfig } from "../src/modules/identity/infrastructure/postgres-config";
+import { getPostgresPoolConfig } from "../src/modules/platform/infrastructure/postgres-config";
 
 type TablePrivilegeResult = {
   table_name: string;

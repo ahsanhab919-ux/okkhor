@@ -27,7 +27,8 @@ route files.
   ```
 
   Unhandled failures return `{ "error": { "code": "AUTH_UNKNOWN", "message": "Unexpected authentication failure." } }`
-  with status `500`.
+  with status `500`. The content endpoints reuse the same envelope with their own `CONTENT_*`
+  codes (see §4.9, §4.10, and §6).
 - **Validation:** request bodies are validated with Zod schemas in
   `src/modules/identity/domain/auth-schemas.ts`. The first validation issue message becomes
   the `AUTH_VALIDATION_FAILED` message (`400`).
@@ -157,6 +158,35 @@ Resolve the current user from the access-token cookie.
 
 - Sets `Cache-Control: no-store`. No auth required.
 
+### 4.9 `GET /api/content/items`
+
+List published research items (content read path), newest first. Public — no auth required.
+
+- **Query:** `?limit=&cursor=`
+  - `limit` — page size, default `20`, clamped to `[1, 50]`.
+  - `cursor` — opaque keyset cursor returned as `nextCursor` by a previous page.
+- **Success** `200`:
+
+  ```json
+  {
+    "items": [ { "…ResearchItem…" } ],
+    "nextCursor": "…"
+  }
+  ```
+
+  `nextCursor` is present only when a further page exists; omit it for the final page.
+- **Errors:** `CONTENT_INVALID_CURSOR` (400) when `cursor` is malformed,
+  `CONTENT_UNKNOWN` (500) for an unhandled failure. Draft items are never returned.
+
+### 4.10 `GET /api/content/items/[id]`
+
+Fetch one published research item by id. Public — no auth required.
+
+- **Request:** `id` is the item UUID path segment.
+- **Success** `200`: `{ "item": { "…ResearchItem…" } }`.
+- **Errors:** `CONTENT_ITEM_NOT_FOUND` (404) when the id is unknown or the item is not
+  published; `CONTENT_UNKNOWN` (500) for an unhandled failure.
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -191,6 +221,15 @@ request). See [data-models.md](data-models.md) §5.2 and `docs/configuration.md`
 The executable source of truth for the codes is
 `src/modules/identity/domain/auth-errors.ts`; this table must be kept in sync with it.
 
+The content endpoints use a parallel set of codes, whose executable source of truth is
+`src/modules/content/domain/content-errors.ts`:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `CONTENT_INVALID_CURSOR` | 400 | `cursor` query parameter is malformed |
+| `CONTENT_ITEM_NOT_FOUND` | 404 | Id is unknown or the item is not published |
+| `CONTENT_UNKNOWN` | 500 | Unhandled failure (fallback) |
+
 ## 7. Route Protection (non-API)
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
@@ -198,6 +237,9 @@ The edge middleware (`middleware.ts`) gates page routes, not API routes:
 - matchers: `/community/:path*`, `/scholar-verify/:path*`
 - behaviour: verify `okkhor_access` at the edge; on missing/invalid token redirect to
   `/auth?next=<original-path>`.
+
+The `/content` and `/content/[id]` pages are **not** gated: the read path is intentionally
+public (see `content-comprehension-slice.md`).
 
 ## 8. Client Usage
 

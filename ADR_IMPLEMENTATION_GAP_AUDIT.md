@@ -76,7 +76,7 @@ documentation (ADR-001, ADR-002) and the first recorded step of ADR-008.
 - Evidence: `migrations/20260718222000_create_auth_identity_tables.cjs` creates
   `auth_users`, `auth_sessions`, and `auth_password_resets`; `node-pg-migrate.config.cjs` sets
   `"single-transaction": true`; `scripts/verify-postgres-auth.ts` backs the
-  `db:verify:postgres` script; `src/modules/identity/infrastructure/postgres-config.ts`
+  `db:verify:postgres` script; `src/modules/platform/infrastructure/postgres-config.ts`
   configures the pool; `infrastructure/docker-compose.yml` provides the local instance with the
   `okkhor-postgres-data` volume; a missing `DATABASE_URL` outside tests is a hard failure in
   `src/modules/identity/infrastructure/auth-repository.ts`; variables are documented in
