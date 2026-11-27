@@ -14,6 +14,8 @@ type PostgresContentItemRow = {
   status: string;
   source_url: string | null;
   published_at: string | null;
+  author_id: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -34,6 +36,8 @@ function mapContentItemRow(row: PostgresContentItemRow): ResearchItem {
     status: row.status === "published" ? "published" : "draft",
     sourceUrl: row.source_url || undefined,
     publishedAt: row.published_at || undefined,
+    authorId: row.author_id || undefined,
+    updatedBy: row.updated_by || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -74,9 +78,24 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
         nextCursor: rows.length > limit && last ? getItemCursor(last) : undefined,
       };
     },
+    async listItems() {
+      const result = await pool.query<PostgresContentItemRow>(
+        "SELECT * FROM content_items ORDER BY updated_at DESC, id DESC",
+      );
+
+      return result.rows.map(mapContentItemRow);
+    },
     async getPublishedItemById(id) {
       const result = await pool.query<PostgresContentItemRow>(
         "SELECT * FROM content_items WHERE id = $1 AND status = 'published' LIMIT 1",
+        [id],
+      );
+
+      return result.rows[0] ? mapContentItemRow(result.rows[0]) : undefined;
+    },
+    async getItemById(id) {
+      const result = await pool.query<PostgresContentItemRow>(
+        "SELECT * FROM content_items WHERE id = $1 LIMIT 1",
         [id],
       );
 
@@ -95,9 +114,11 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
             status,
             source_url,
             published_at,
+            author_id,
+            updated_by,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)
+          ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13)
           ON CONFLICT (id) DO UPDATE SET
             title = EXCLUDED.title,
             abstract = EXCLUDED.abstract,
@@ -107,6 +128,8 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
             status = EXCLUDED.status,
             source_url = EXCLUDED.source_url,
             published_at = EXCLUDED.published_at,
+            author_id = EXCLUDED.author_id,
+            updated_by = EXCLUDED.updated_by,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
         `,
@@ -120,13 +143,15 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
           item.status,
           item.sourceUrl ?? null,
           item.publishedAt ?? null,
+          item.authorId ?? null,
+          item.updatedBy ?? null,
           item.createdAt,
           item.updatedAt,
         ],
       );
     },
-    async updateItem(item) {
-      await pool.query(
+    async updateItemIfUnchanged(item, expectedUpdatedAt) {
+      const result = await pool.query(
         `
           UPDATE content_items
           SET title = $2,
@@ -137,9 +162,11 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
               status = $7,
               source_url = $8,
               published_at = $9,
-              created_at = $10,
-              updated_at = $11
-          WHERE id = $1
+              author_id = $10,
+              updated_by = $11,
+              created_at = $12,
+              updated_at = $13
+          WHERE id = $1 AND updated_at = $14
         `,
         [
           item.id,
@@ -151,10 +178,15 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
           item.status,
           item.sourceUrl ?? null,
           item.publishedAt ?? null,
+          item.authorId ?? null,
+          item.updatedBy ?? null,
           item.createdAt,
           item.updatedAt,
+          expectedUpdatedAt,
         ],
       );
+
+      return (result.rowCount ?? 0) === 1;
     },
   };
 }

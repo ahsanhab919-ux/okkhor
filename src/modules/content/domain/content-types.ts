@@ -1,3 +1,5 @@
+import type { UserRole } from "@/src/modules/identity/domain/auth-types";
+
 export type ResearchItemStatus = "draft" | "published";
 
 /**
@@ -14,8 +16,41 @@ export type ResearchItem = {
   status: ResearchItemStatus;
   sourceUrl?: string;
   publishedAt?: string;
+  authorId?: string;
+  updatedBy?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+/**
+ * The acting user, passed into authoring use cases as plain data. The content module
+ * treats it as an opaque actor; the app layer resolves it from the identity module.
+ */
+export type ContentAuthor = {
+  id: string;
+  roles: UserRole[];
+};
+
+export type CreateItemInput = {
+  title: string;
+  abstract: string;
+  summaryBn: string;
+  sourceLanguage?: string;
+  tags?: string[];
+  status?: ResearchItemStatus;
+  sourceUrl?: string;
+};
+
+export type UpdateItemInput = {
+  title?: string;
+  abstract?: string;
+  summaryBn?: string;
+  sourceLanguage?: string;
+  tags?: string[];
+  status?: ResearchItemStatus;
+  sourceUrl?: string;
+  /** The value the client last read; used for the optimistic-concurrency check. */
+  updatedAt?: string;
 };
 
 /**
@@ -39,9 +74,17 @@ export type ListPublishedItemsResult = {
 
 export type ContentRepository = {
   listPublishedItems(options: ListPublishedItemsOptions): Promise<ListPublishedItemsResult>;
+  /** All items regardless of status, newest-edited first. The authoring view. */
+  listItems(): Promise<ResearchItem[]>;
   getPublishedItemById(id: string): Promise<ResearchItem | undefined>;
+  /** Any item regardless of status. The authoring path. */
+  getItemById(id: string): Promise<ResearchItem | undefined>;
   createItem(item: ResearchItem): Promise<void>;
-  updateItem(item: ResearchItem): Promise<void>;
+  /**
+   * Writes the item only if the stored `updated_at` still equals `expectedUpdatedAt`.
+   * Returns `false` when another writer changed the row first.
+   */
+  updateItemIfUnchanged(item: ResearchItem, expectedUpdatedAt: string): Promise<boolean>;
 };
 
 export type ContentStore = {
