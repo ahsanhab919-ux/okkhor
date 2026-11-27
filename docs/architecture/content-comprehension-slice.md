@@ -229,5 +229,6 @@ and [module-boundaries.md](module-boundaries.md) §5.4 for the shipped surface.
 
 Next step is the **authoring/write slice** (create/update endpoints, an authoring UI, and a real
 editorial content source) or the **search slice**; each is a new design note and must not start
-until its own Definition of Ready is accepted. Slice 1 deliberately stops at the read path and
-triggers none of the deferred infrastructure ADRs (§9).
+until its own Definition of Ready is accepted. The authoring/write slice is specified in
+[content-authoring-slice.md](content-authoring-slice.md). Slice 1 deliberately stops at the read
+path and triggers none of the deferred infrastructure ADRs (§9).
