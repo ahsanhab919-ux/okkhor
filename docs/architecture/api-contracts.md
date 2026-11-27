@@ -28,10 +28,12 @@ route files.
 
   Unhandled failures return `{ "error": { "code": "AUTH_UNKNOWN", "message": "Unexpected authentication failure." } }`
   with status `500`. The content endpoints reuse the same envelope with their own `CONTENT_*`
-  codes (see §4.9, §4.10, and §6).
+  codes (see §4.9–§4.12 and §6).
 - **Validation:** request bodies are validated with Zod schemas in
   `src/modules/identity/domain/auth-schemas.ts`. The first validation issue message becomes
-  the `AUTH_VALIDATION_FAILED` message (`400`).
+  the `AUTH_VALIDATION_FAILED` message (`400`). Content writes use
+  `src/modules/content/domain/content-schemas.ts`, where the same rule yields
+  `CONTENT_VALIDATION_FAILED` (`400`).
 
 ## 3. Cookie Contract
 
@@ -187,6 +189,56 @@ Fetch one published research item by id. Public — no auth required.
 - **Errors:** `CONTENT_ITEM_NOT_FOUND` (404) when the id is unknown or the item is not
   published; `CONTENT_UNKNOWN` (500) for an unhandled failure.
 
+### 4.11 `POST /api/content/items`
+
+Create a research item (content write path). Requires an authenticated session with an author
+role (`scholar` or `admin`) — see [content-authoring-slice.md](content-authoring-slice.md).
+
+- **Request**
+
+  ```json
+  {
+    "title": "…",
+    "abstract": "…",
+    "summaryBn": "…",
+    "sourceLanguage": "en",
+    "tags": ["…"],
+    "sourceUrl": "…",
+    "status": "draft"
+  }
+  ```
+
+  `title`, `abstract`, and `summaryBn` are required and non-empty; `tags` defaults to `[]`;
+  `sourceLanguage` defaults to `en`; `status` defaults to `draft` (`draft | published`). The
+  creating user is stamped as `authorId` and `updatedBy`.
+
+- **Success** `201`: `{ "item": { "…ResearchItem…" } }`. Creating directly as `published`
+  stamps `publishedAt`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401 — no/invalid session), `CONTENT_FORBIDDEN` (403 —
+  authenticated non-author such as `learner`), `CONTENT_VALIDATION_FAILED` (400),
+  `CONTENT_UNKNOWN` (500).
+
+### 4.12 `PATCH /api/content/items/[id]`
+
+Edit an existing research item and/or transition it (`draft → published`). Requires an
+authenticated session with an author role (`scholar` or `admin`).
+
+- **Request:** any subset of the create fields, plus `updatedAt` — the `updatedAt` the client
+  last read, used as the optimistic-concurrency token.
+
+  ```json
+  { "title": "…", "status": "published", "updatedAt": "2026-11-28T10:00:00.000Z" }
+  ```
+
+- **Success** `200`: `{ "item": { "…ResearchItem…" } }`. The transition to `published` stamps
+  `publishedAt` once (a later edit keeps the original value). Every write stamps `updatedBy`
+  and bumps `updatedAt`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `CONTENT_FORBIDDEN` (403), `CONTENT_VALIDATION_FAILED`
+  (400), `CONTENT_ITEM_NOT_FOUND` (404 — unknown id), `CONTENT_CONFLICT` (409 — `updatedAt` did
+  not match the stored version; the newer version is not overwritten), `CONTENT_UNKNOWN` (500).
+
+The read endpoints (§4.9, §4.10) are unchanged and stay public.
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -227,16 +279,23 @@ The content endpoints use a parallel set of codes, whose executable source of tr
 | Code | Status | Meaning |
 | --- | --- | --- |
 | `CONTENT_INVALID_CURSOR` | 400 | `cursor` query parameter is malformed |
+| `CONTENT_VALIDATION_FAILED` | 400 | Write request body failed schema validation |
+| `CONTENT_FORBIDDEN` | 403 | Authenticated user does not hold an author role |
 | `CONTENT_ITEM_NOT_FOUND` | 404 | Id is unknown or the item is not published |
+| `CONTENT_CONFLICT` | 409 | `updatedAt` did not match the stored version (stale write) |
 | `CONTENT_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
 ## 7. Route Protection (non-API)
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
 
-- matchers: `/community/:path*`, `/scholar-verify/:path*`
+- matchers: `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`
 - behaviour: verify `okkhor_access` at the edge; on missing/invalid token redirect to
   `/auth?next=<original-path>`.
+
+`/studio` is additionally gated server-side by role: the layout resolves the session and
+renders the authoring UI only for `scholar`/`admin`, otherwise a restricted notice
+(see [content-authoring-slice.md](content-authoring-slice.md) §7).
 
 The `/content` and `/content/[id]` pages are **not** gated: the read path is intentionally
 public (see `content-comprehension-slice.md`).
