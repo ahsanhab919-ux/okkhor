@@ -1,0 +1,70 @@
+# Configuration Reference
+
+## Local Environment Bootstrap
+
+1. Copy `.env.example` to `.env.local`.
+2. Set a real `AUTH_JWT_SECRET`.
+3. Set `AUTH_STORAGE_DRIVER=postgres` when validating the PostgreSQL-backed auth path.
+4. Set `DATABASE_URL` to your local PostgreSQL instance.
+5. Run `npm run db:migrate` before `npm run dev`.
+
+## Variables
+
+### `AUTH_JWT_SECRET`
+
+- required for non-demo environments
+- signs access and refresh tokens
+
+### `AUTH_STORAGE_DRIVER`
+
+- supported values: `auto`, `memory`, `postgres`
+- `auto` selects PostgreSQL when `DATABASE_URL` is present and falls back to memory otherwise
+- `memory` forces the CI-safe in-memory repository
+- `postgres` forces the PostgreSQL repository and requires `DATABASE_URL`
+
+### `DATABASE_URL`
+
+- PostgreSQL connection string for migrations and runtime queries
+- local example: `postgres://postgres:postgres@localhost:5432/okkhor`
+
+### `DB_POOL_MAX`
+
+- maximum PostgreSQL connections per application process
+- default: `10`
+
+### `DB_POOL_IDLE_TIMEOUT_MS`
+
+- how long idle pooled connections stay open
+- default: `10000`
+
+### `DB_POOL_CONNECTION_TIMEOUT_MS`
+
+- maximum wait time for opening a new PostgreSQL connection
+- default: `5000`
+
+### `DB_POOL_MAX_USES`
+
+- maximum reuse count per connection before recycling
+- default: `7500`
+
+## Migration Operations
+
+- apply migrations: `npm run db:migrate`
+- roll back one migration: `npm run db:migrate:down`
+- roll back and re-apply the latest migration: `npm run db:migrate:redo`
+- create a new migration: `npm run db:migrate:create -- migration-name`
+
+## PostgreSQL Full-Link Verification
+
+- ensure `.env.local` points to a running PostgreSQL instance
+- run `npm run db:migrate`
+- run `npm run db:verify:postgres`
+
+The verification script checks:
+
+- network-level connectivity
+- required table presence
+- table privileges
+- CRUD operations
+- transaction rollback behavior
+- pool reuse behavior

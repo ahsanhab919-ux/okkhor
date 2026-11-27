@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Okkhor",
-  description: "Journal Club Asia production-ready repository scaffold",
+  title: "Okkhor | The Illuminated Archive",
+  description: "Bangla-first research learning platform with scholar onboarding, community discussion, and premium archive discovery.",
 };
 
 type RootLayoutProps = {
