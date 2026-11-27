@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import {
   ACCESS_TOKEN_COOKIE,
@@ -49,6 +49,25 @@ export function clearAuthCookies(response: NextResponse) {
 
 export function authJson(data: unknown, init?: ResponseInit) {
   return NextResponse.json(data, init);
+}
+
+/**
+ * Derives a stable identifier for abuse controls from the request. It prefers the
+ * client address that a reverse proxy forwards, and falls back to a constant so the
+ * limiter still applies in environments without proxy headers.
+ */
+export function getClientIdentifier(request: NextRequest) {
+  const forwarded = request.headers.get("x-forwarded-for");
+
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+
+    if (first) {
+      return first;
+    }
+  }
+
+  return request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
 export function authErrorResponse(error: unknown) {

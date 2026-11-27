@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "@/src/modules/identity/domain/auth-config";
+import { AUTH_RATE_LIMITS } from "@/src/modules/identity/application/auth-rate-limit";
 import { resetAuthStoreForTesting } from "@/src/modules/identity/infrastructure/auth-store";
+import { resetEphemeralStoreForTesting } from "@/src/modules/platform/infrastructure/ephemeral-store";
 
 import { POST as confirmReset } from "@/app/api/auth/password-reset/confirm/route";
 import { POST as requestReset } from "@/app/api/auth/password-reset/request/route";
@@ -31,6 +33,7 @@ function jsonRequest(url: string, body: unknown, cookie?: string) {
 describe("auth routes", () => {
   beforeEach(() => {
     resetAuthStoreForTesting();
+    resetEphemeralStoreForTesting();
   });
 
   it("registers, returns cookies, and exposes the session endpoint", async () => {
@@ -136,5 +139,34 @@ describe("auth routes", () => {
     );
 
     expect(confirmResponse.status).toBe(200);
+  });
+
+  it("rate limits repeated login attempts from the same client", async () => {
+    const { limit } = AUTH_RATE_LIMITS.login;
+
+    for (let attempt = 0; attempt < limit; attempt += 1) {
+      const response = await login(
+        jsonRequest("http://localhost/api/auth/login", {
+          phoneNumber: "01712345678",
+          password: "Okkhor2026",
+        }),
+      );
+
+      expect(response.status).not.toBe(429);
+    }
+
+    const blockedResponse = await login(
+      jsonRequest("http://localhost/api/auth/login", {
+        phoneNumber: "01712345678",
+        password: "Okkhor2026",
+      }),
+    );
+
+    const blockedPayload = (await blockedResponse.json()) as {
+      error: { code: string };
+    };
+
+    expect(blockedResponse.status).toBe(429);
+    expect(blockedPayload.error.code).toBe("AUTH_RATE_LIMITED");
   });
 });

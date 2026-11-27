@@ -127,3 +127,18 @@ The current phase deliverable is complete only when:
   - provisioning and the first cache workload remain deliberately out of scope for this phase
 - Outcome:
   - the phase deliverable is accepted, and the phase is complete
+
+### Step 6: ADR-005 rollout
+
+- Status: `Passed`
+- Findings:
+  - the deferred items from Step 4 are now implemented
+  - a narrow ephemeral boundary exists at `src/modules/platform/infrastructure/ephemeral-store.ts`, selected by `EPHEMERAL_STORAGE_DRIVER`, with an in-memory fallback so tests and local development stay `Redis`-free
+  - the first workload is auth rate limiting, applied to the login, register, and password-reset request routes
+  - key namespacing, TTL defaults, and invalidation rules are documented per key class in `docs/configuration.md`
+  - a `redis` service was added to `infrastructure/docker-compose.yml` with persistence disabled, because nothing durable may live there
+  - `EPHEMERAL_STORAGE_DRIVER` and `REDIS_URL` are documented in `.env.example` and `docs/configuration.md`, per handbook section `4.3`
+  - tests cover the Redis-absent fallback path, window expiry, per-identifier counting, and the 429 response
+  - `npm run lint`, `npm run typecheck`, `npm run test:ci`, and `npm run build` all pass without a live `Redis`
+- Outcome:
+  - `ADR-005` is validated end to end: the application builds, tests, and runs with and without `Redis`, satisfying the ADR's validation criteria
