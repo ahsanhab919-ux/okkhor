@@ -8,6 +8,16 @@
 4. Set `DATABASE_URL` to your local PostgreSQL instance.
 5. Run `npm run db:migrate` before `npm run dev`.
 
+## Local PostgreSQL
+
+`infrastructure/docker-compose.yml` provisions a local PostgreSQL instance that matches the `DATABASE_URL` example below.
+
+- start: `docker compose -f infrastructure/docker-compose.yml up -d`
+- stop: `docker compose -f infrastructure/docker-compose.yml down`
+- stop and delete data: `docker compose -f infrastructure/docker-compose.yml down -v`
+
+The instance listens on `localhost:5432` with database `okkhor`, user `postgres`, and password `postgres`. Data lives in the `okkhor-postgres-data` volume, so it survives `down` and container restarts.
+
 ## Variables
 
 ### `AUTH_JWT_SECRET`

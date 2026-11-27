@@ -1,0 +1,23 @@
+name: okkhor
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: okkhor-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: okkhor
+    ports:
+      - "5432:5432"
+    volumes:
+      - okkhor-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d okkhor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  okkhor-postgres-data:
