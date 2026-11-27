@@ -11,6 +11,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `server-vs-client-components.md` - server-first rendering rules and the client-island inventory (`ADR-002`)
 - `operational-calendar.md` - calendar model and readiness checklist for regional demand events (`ADR-008`)
 - `authentication-backend-slice.md` - auth domain flow, persistence behavior, migration workflow, and validation notes
+- `content-comprehension-slice.md` - proposed first product slice: design and Definition of Ready (status: Proposed)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions
