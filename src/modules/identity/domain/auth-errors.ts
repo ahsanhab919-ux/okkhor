@@ -8,7 +8,8 @@ export class AuthError extends Error {
       | "AUTH_UNAUTHORIZED"
       | "AUTH_TOKEN_INVALID"
       | "AUTH_TOKEN_EXPIRED"
-      | "AUTH_RESET_INVALID",
+      | "AUTH_RESET_INVALID"
+      | "AUTH_RATE_LIMITED",
     public readonly status: number,
   ) {
     super(message);
