@@ -1,6 +1,6 @@
 # ADR-006: Adopt Qdrant for Semantic Discovery
 
-- Status: `Proposed`
+- Status: `Accepted`
 - Date: `2026-11-27`
 - Owners: `Engineering Lead`
 - Deciders: `Engineering Lead`, `Founding Product Team`

@@ -3,7 +3,7 @@
 Version: `1.0`  
 Phase: `ADR-006 Bootstrap`  
 Execution Mode: `Strictly Sequential`  
-Status: `In Progress`
+Status: `Completed`
 
 ## 1. Phase Objective
 
@@ -112,9 +112,20 @@ The current phase deliverable is complete only when:
 
 ### Step 4: Approval request
 
-- Status: `Pending`
-- Approval required before:
-  - promoting `ADR-006` from `Proposed` to `Accepted`
+- Status: `Approved` (2026-11-27)
+- Approval scope:
+  - promote `ADR-006` from `Proposed` to `Accepted`
+- Approval deferred by decision:
   - adding `Qdrant` to `infrastructure/docker-compose.yml`
   - introducing the first semantic discovery workload behind a boundary with a fallback
+- Approval required before:
   - creating `ADR-007`
+
+### Step 5: ADR-006 promotion
+
+- Status: `Passed`
+- Findings:
+  - `ADR-006` status changed from `Proposed` to `Accepted`
+  - provisioning and the first semantic discovery workload remain deliberately out of scope for this phase
+- Outcome:
+  - the phase deliverable is accepted, and the phase is complete
