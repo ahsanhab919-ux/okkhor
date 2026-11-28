@@ -166,6 +166,45 @@ read), `CommunityThreadDetail` (`{ thread, replies }`), `CommunityActor` (`{ id,
 derived, never stored — a correlated subquery in PostgreSQL, a scan over the replies map in
 memory.
 
+### 2.9 Search read model (search)
+
+The discovery read model. These types are **derived** — nothing here is persisted; `search`
+projects published research and community threads into a flat list at read time. Defined in
+`src/modules/search/domain/search-types.ts`.
+
+`SearchKind` = `"research" | "thread"`; `SearchSort` = `"relevance" | "newest"`.
+
+`SearchDocument` (a projection of one `ResearchItem` or `CommunityThread`):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `kind` | `SearchKind` | Which source produced the row |
+| `id` | `string` | Source row id |
+| `title` | `string` | Scored field |
+| `body` | `string` | Research: `abstract + summaryBn`; thread: `body`. Scored field |
+| `tags` | `string[]` | Research tags, or the thread category. Scored field |
+| `authorId` | `string?` | For the author filter |
+| `createdAt` | `string` (ISO) | Sort key |
+
+`SearchQuery` — what the repository receives: `{ tokens, kind?, tags?, category?, authorId?,
+limit }`. `tokens` are lower-cased query words; the repository requires **every** token to
+appear (AND), case-insensitively, in the title, body, or tag text.
+
+`SearchCriteria` — the normalized query the service works with: `{ query, kind?, tag?,
+category?, author?, sort, limit }`.
+
+`SearchHit` — a scored `SearchDocument`: `{ kind, id, title, excerpt, tags, authorId?,
+createdAt, href, score }`. `excerpt` is the body trimmed to 180 chars with a `…` suffix;
+`href` is `/content/[id]` for research and `/community/[id]` for threads.
+
+`SearchResult` = `{ hits: SearchHit[]; total: number }` — `hits` is the paginated slice,
+`total` is the count before slicing.
+
+`SearchRepository` = `{ searchDocuments(query: SearchQuery): Promise<SearchDocument[]> }`. The
+in-memory implementation composes the content and community memory stores; the PostgreSQL
+implementation runs an `ILIKE`-per-token query over `content_items` (`status = 'published'`)
+and `community_threads`.
+
 ## 3. PostgreSQL Schema
 
 The `auth_*` tables (§3.1–§3.3) are created by
@@ -361,6 +400,15 @@ requested limit (returning a `nextCursor` while a further page remains). `listRe
 filters by `threadId` and sorts ascending. Like the other stores it is cached on `globalThis`
 (`__okkhorCommunityStore`) and replaced between tests by `resetCommunityStoreForTesting()`.
 
+### 4.5 Search read model (no store)
+
+`search` has no store of its own. Its in-memory repository
+(`src/modules/search/infrastructure/search-store.ts`) is a stateless projection: on each
+`searchDocuments` call it reads `getMemoryContentRepository().listItems()` and
+`getMemoryCommunityRepository().listThreads(...)`, filters them, and returns `SearchDocument`s.
+It is cached on `globalThis` (`__okkhorMemorySearchRepository`) but holds no data, so it needs
+no reset hook — resetting the content and community stores is enough.
+
 ## 5. Persistence Driver Selection
 
 ### 5.1 Auth repository
@@ -461,6 +509,27 @@ Both implementations satisfy the `CommunityRepository` interface. Application co
 `getCommunityRepository()`; the driver is independent of the other modules' drivers. The
 postgres list read is a keyset query with a correlated subquery for `replyCount`, and writes use
 `INSERT … ON CONFLICT (id) DO UPDATE`.
+
+### 5.7 Search repository
+
+`src/modules/search/infrastructure/search-repository.ts` is the single decision point for the
+`search` module, using its own driver variable:
+
+```
+SEARCH_STORAGE_DRIVER = auto | memory | postgres   (default: auto)
+  memory   → memory repository
+  postgres → postgres repository
+  auto     → NODE_ENV === "test"        → memory
+             else DATABASE_URL present  → postgres
+             else                       → throw (misconfiguration)
+```
+
+Both implementations satisfy the `SearchRepository` interface (a single `searchDocuments`
+method). Application code calls `getSearchRepository()`; the driver is independent of the other
+modules' drivers. Because `search` is read-only, the postgres implementation issues only
+`SELECT`s — an `ILIKE`-per-token predicate ANDed together over `content_items`
+(`status = 'published'`) and `community_threads`, with `tags @> $n::jsonb` for the research tag
+filter and `category = $n` for the thread category filter.
 
 ## 6. Data Classification and Handling
 

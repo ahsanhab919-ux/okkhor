@@ -8,10 +8,11 @@
 4. Set `CONTENT_STORAGE_DRIVER=postgres` (the example default) for durable content; use `memory` only for non-durable local work.
 5. Set `VERIFICATION_STORAGE_DRIVER=postgres` (the example default) for durable scholar-verification applications; use `memory` only for non-durable local work.
 6. Set `COMMUNITY_STORAGE_DRIVER=postgres` (the example default) for durable community threads and replies; use `memory` only for non-durable local work.
-7. Set `DATABASE_URL` to your local PostgreSQL instance.
-8. Run `npm run db:migrate` before `npm run dev`.
-9. Optionally run `npm run db:seed:content` to insert illustrative research items into `content_items`.
-10. Redis is optional. To exercise the Redis path locally, start it (see below) and leave `EPHEMERAL_STORAGE_DRIVER=auto` with `REDIS_URL` set. Without `REDIS_URL` the application falls back to in-memory ephemeral state.
+7. Set `SEARCH_STORAGE_DRIVER=postgres` (the example default) for durable discovery search; use `memory` only for non-durable local work.
+8. Set `DATABASE_URL` to your local PostgreSQL instance.
+9. Run `npm run db:migrate` before `npm run dev`.
+10. Optionally run `npm run db:seed:content` to insert illustrative research items into `content_items`.
+11. Redis is optional. To exercise the Redis path locally, start it (see below) and leave `EPHEMERAL_STORAGE_DRIVER=auto` with `REDIS_URL` set. Without `REDIS_URL` the application falls back to in-memory ephemeral state.
 
 ## Local PostgreSQL
 
@@ -85,6 +86,15 @@ TTL defaults are set on first write and are never extended on later writes, so a
 - selects the `community` module's repository only; it is independent of `AUTH_STORAGE_DRIVER`, `CONTENT_STORAGE_DRIVER`, and `VERIFICATION_STORAGE_DRIVER`
 - `postgres` forces the PostgreSQL repository and requires `DATABASE_URL`; this is the example default
 - `memory` forces the in-memory repository and is only valid for local, non-durable work and tests
+- `auto` uses `memory` when `NODE_ENV=test`, and PostgreSQL when `DATABASE_URL` is present
+- outside tests, `auto` or `postgres` without a `DATABASE_URL` fails loudly instead of falling back to `memory`
+
+### `SEARCH_STORAGE_DRIVER`
+
+- supported values: `auto`, `memory`, `postgres`
+- selects the `search` module's read-only repository only; it is independent of `AUTH_STORAGE_DRIVER`, `CONTENT_STORAGE_DRIVER`, `VERIFICATION_STORAGE_DRIVER`, and `COMMUNITY_STORAGE_DRIVER`
+- `postgres` forces the PostgreSQL repository and requires `DATABASE_URL`; this is the example default
+- `memory` forces the in-memory repository (which projects the content and community memory stores) and is only valid for local, non-durable work and tests
 - `auto` uses `memory` when `NODE_ENV=test`, and PostgreSQL when `DATABASE_URL` is present
 - outside tests, `auto` or `postgres` without a `DATABASE_URL` fails loudly instead of falling back to `memory`
 

@@ -172,12 +172,35 @@ depends on `platform` for the shared Postgres pool config and imports identity *
 (`UserRole`); the acting member is resolved in the composition root (`app/**`) and passed in as
 `{ id, roles }`. It does not import `content` or `verification`.
 
+### 5.7 `search` — implemented, fully layered
+
+```
+src/modules/search/
+  domain/         search-types.ts, search-errors.ts,
+                  search-schemas.ts         (query schema + tokenizer)
+  application/    search-service.ts         (scoring, merge, sort, pagination)
+  infrastructure/ search-repository.ts      (driver selector)
+                  search-store.ts            (in-memory repository)
+                  postgres-search-repository.ts
+  api/            search-http.ts            (response + error shaping)
+  ui/             search-form.tsx           (query island)
+                  search-results.tsx         (results view)
+```
+
+`search` owns the discovery read model: it projects published research and community threads
+into a flat `SearchDocument` list, scores them per query token, and returns ranked hits. It
+depends on `platform` for the shared Postgres pool config and imports content/community
+**types only** (`ResearchItem`, `CommunityThread`). The in-memory repository composes their
+memory repositories (`getMemoryContentRepository`, `getMemoryCommunityRepository`) to build
+the read model; the PostgreSQL repository queries `content_items` and `community_threads`
+directly. It is strictly read-only and owns no writes.
+
 ## 6. Cross-Module Rules
 
 Current dependency edges (verified in code):
 
 - `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, `content`,
-  `verification`, and `community`.
+  `verification`, `community`, and `search`.
 - `identity` depends on `platform` for the ephemeral store (`auth-rate-limit.ts` imports
   `getEphemeralStore`).
 - `content` depends on `platform` for the shared Postgres pool config
@@ -188,6 +211,13 @@ Current dependency edges (verified in code):
   (`postgres-community-repository.ts` imports `getPostgresPoolConfig`).
 - `experience` imports `identity` **types only** (`UserProfile`) for presentational props.
 - `community` imports `identity` **types only** (`UserRole`) for its actor type.
+- `search` depends on `platform` for the shared Postgres pool config
+  (`postgres-search-repository.ts` imports `getPostgresPoolConfig`).
+- `search` imports `content` and `community` **types only** (`ResearchItem`, `CommunityThread`)
+  for the read model, and its in-memory repository composes their memory repositories
+  (`getMemoryContentRepository`, `getMemoryCommunityRepository`) to build the read model. This
+  read-only composition edge is accepted in [discovery-slice.md](discovery-slice.md) because
+  `search` never writes and never exposes member-only data beyond its gated surface.
 
 Rules that follow:
 

@@ -102,6 +102,18 @@ function createPostgresAuthRepository(pool: Pool): AuthRepository {
 
       return result.rows[0] ? mapUserRow(result.rows[0]) : undefined;
     },
+    async listProfilesByIds(ids) {
+      if (ids.length === 0) {
+        return [];
+      }
+
+      const result = await pool.query<{ id: string; display_name: string }>(
+        "SELECT id, display_name FROM auth_users WHERE id = ANY($1)",
+        [ids],
+      );
+
+      return result.rows.map((row) => ({ id: row.id, displayName: row.display_name }));
+    },
     async createUser(user) {
       await pool.query(
         `
