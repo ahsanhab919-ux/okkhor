@@ -1,6 +1,6 @@
 # Password Reset Delivery Slice
 
-- Status: `Proposed` (eleventh product slice — Definition of Ready; decisions recorded in §13)
+- Status: `Implemented` (eleventh product slice — decisions recorded in §13)
 - Related ADRs: `ADR-001`, `ADR-004`, `ADR-005`, `ADR-009`
 - Owner: `Engineering Lead`
 - Handbook: `ENGINEERING_HANDBOOK.md` §7.2 (Definition of Ready), §7.3 (Definition of Done)

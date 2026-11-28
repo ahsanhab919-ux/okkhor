@@ -107,6 +107,11 @@ Both backing stores are **optional at boot**:
 The driver-selection pattern is shared across both boundaries (see
 [data-models.md](data-models.md) §5).
 
+The password-reset flow adds one **outbound** dependency beyond the diagram: the `platform`
+notification channels POST to the configured SMS/email gateways. Delivery is optional — `auto`
+degrades to the dev/test `log` channel (see [data-models.md](data-models.md) §5.10,
+[password-reset-delivery-slice.md](password-reset-delivery-slice.md) §9).
+
 ## 6. Request Lifecycle
 
 1. **Edge middleware** (`middleware.ts`) runs for the protected matchers
@@ -122,6 +127,11 @@ The driver-selection pattern is shared across both boundaries (see
    returns plain domain data.
 5. The route handler shapes the HTTP response; cookies are set via
    `src/modules/identity/api/auth-http.ts`.
+6. The password-reset request additionally performs an **outbound delivery** step: the identity
+   use case mints a 6-digit code and hands a `NotificationMessage` to the resolved `platform`
+   notification channels (SMS always, email too when the account has one). The send is
+   server-side only, so the neutral HTTP response is unchanged and the code never reaches the
+   browser ([password-reset-delivery-slice.md](password-reset-delivery-slice.md) §7, §9).
 
 Middleware is intentionally thin: it only gates routes. Authorization that depends on
 business state is enforced inside the application layer (`ADR-001`: authorization rules must
@@ -135,7 +145,7 @@ and the moderation routes re-check the same admin-only gate server-side.
 | Module | Location | Responsibility | Status |
 | --- | --- | --- | --- |
 | `identity` | `src/modules/identity/**` | Registration, login, sessions, password reset, route protection | Implemented |
-| `platform` | `src/modules/platform/**` | Runtime status/highlights and the cross-cutting ephemeral store | Implemented |
+| `platform` | `src/modules/platform/**` | Runtime status/highlights, the cross-cutting ephemeral store, and the notification channels (SMS/email/log) | Implemented |
 | `experience` | `src/modules/experience/**` | Public site content and presentational/UI building blocks | Implemented |
 | `content` | `src/modules/content/**` | Research-item comprehension: published list/detail read path | Implemented (read path) |
 | `library` | `src/modules/library/**` | Per-member saved research items ("My Library") | Implemented |

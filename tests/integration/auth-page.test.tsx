@@ -112,4 +112,51 @@ describe("AuthPage", () => {
     });
     expect(router.refresh).toHaveBeenCalled();
   });
+
+  it("captures an optional email on the registration form", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("No active session"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Register" }));
+
+    expect(screen.getByLabelText(/Email \(optional\)/i)).toBeInTheDocument();
+  });
+
+  it("shows reset-code guidance and does not prefill a code from a production response", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/api/auth/password-reset/request")) {
+        return new Response(
+          JSON.stringify({
+            accepted: true,
+            message: "If the account exists, a reset instruction has been issued.",
+          }),
+          { status: 200 },
+        );
+      }
+
+      throw new Error("No active session");
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AuthPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: /Send Reset Code/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/we sent a 6-digit code/i)).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText(/Reset code/i)).toHaveValue("");
+  });
 });

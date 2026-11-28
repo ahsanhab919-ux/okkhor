@@ -7,6 +7,7 @@ import { ThreadList } from "@/src/modules/community/ui/thread-list";
 import { listContentItems } from "@/src/modules/content/application/content-service";
 import { ContentItemList } from "@/src/modules/content/ui/content-views";
 import { getPublicProfile } from "@/src/modules/identity/application/auth-service";
+import { EmailSettingsForm } from "@/src/modules/identity/ui/email-settings-form";
 import { ProfileCard } from "@/src/modules/identity/ui/profile-card";
 import { countSavedItems } from "@/src/modules/library/application/library-service";
 
@@ -40,6 +41,15 @@ export default async function ProfilePage() {
   return (
     <section className="content-band">
       <ProfileCard profile={profile} />
+
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow eyebrow--blue">Account</p>
+          <h2>Account Email</h2>
+        </div>
+        <p>Used only to send your password-reset code. It is never shown on your public profile.</p>
+      </div>
+      <EmailSettingsForm initialEmail={viewer.user.email} />
 
       <div className="section-heading">
         <div>

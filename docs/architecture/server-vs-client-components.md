@@ -70,6 +70,7 @@ Exactly these files carry `"use client"` (the interactive islands):
 | `src/modules/search/ui/search-form.tsx` | search form `useState`, submit handler, `useRouter` | pushes query params to `/search` (server reads them) |
 | `src/modules/content/ui/item-editor-form.tsx` | authoring form `useState`, submit handler, `useRouter` | drives `POST`/`PATCH /api/content/items`; shows the transient AI English preview on publish |
 | `src/modules/library/ui/save-item-button.tsx` | Save/Saved toggle `useState`, handlers, `useRouter` | drives `POST`/`DELETE /api/library/items`; also exports the `RemoveSavedItemButton` used on `/library` |
+| `src/modules/identity/ui/email-settings-form.tsx` | owner-only email edit `useState` + one PATCH handler | drives `PATCH /api/auth/profile`; rendered on `/profile` |
 
 `src/modules/identity/client/session-client.ts` is also `"use client"` but is a **helper
 module**, not a component: it wraps `fetch` against the auth API with
@@ -131,6 +132,16 @@ server-safe `ContentItemList` (`content-views.tsx`) and `ThreadList`
 `/community/[id]` detail pages gained tag/category links but remain server components (the
 only island on the detail pages is the pre-existing `SaveItemButton` on `/content/[id]`), so
 browse ships no JavaScript beyond the shared chrome.
+
+The password-reset-delivery slice adds **one** island — `email-settings-form.tsx`, the owner-only
+account-email editor on `/profile`. It is a tiny `"use client"` leaf that owns only the email
+string plus a saving flag and posts one `PATCH /api/auth/profile`. `/profile` stays a server
+component: it resolves the viewer server-side (the page redirects without a session) and passes
+the current `email` down as a serializable prop, alongside the server-safe `ProfileCard`. The
+`auth` panel (`credential-auth-panel.tsx`) gained the optional registration email and the
+"code sent" reset guidance but remains the same single island, so no new boundary is introduced
+there. Delivery itself is server-side only — the code never becomes client state outside the
+dev-only preview.
 
 ## 6. Import Graph Nuance
 

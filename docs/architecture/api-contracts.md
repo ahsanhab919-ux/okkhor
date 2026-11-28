@@ -68,13 +68,16 @@ Create a phone-first account and start a session.
     "displayName": "Rahim Uddin",
     "password": "secret123",
     "locale": "bn-BD",
-    "roles": ["learner"]
+    "roles": ["learner"],
+    "email": "rahim@example.com"
   }
   ```
 
   `phoneNumber` is normalized to the `+880` form before storage; `locale` defaults to
   `bn-BD`; `roles` defaults to `["learner"]`. `password` must be ≥ 8 characters with at least
-  one letter and one number.
+  one letter and one number. `email` is **optional** (validated when present, ≤ 160 chars, an
+  empty string is treated as no email); it is a secondary recovery contact, not an identifier —
+  it is not unique and never appears in `PublicProfile` (`password-reset-delivery-slice.md` §5).
 
 - **Success** `200`
 
@@ -141,20 +144,37 @@ Resolve the current user from the access-token cookie.
   { "accepted": true, "message": "If the account exists, a reset instruction has been issued." }
   ```
 
-  When the account exists, the response additionally includes `resetTokenPreview` and
-  `expiresAt`. **Delivery of the token is not yet implemented** (no SMS/email channel); the
-  preview is the current handoff mechanism.
+  When the account exists, a **6-digit numeric reset code** is minted (stored only as a SHA-256
+  hash) and **delivered out of band**: always over SMS to the account phone, and over email too
+  whenever the account has an email. The response is **identical** whether the account is
+  unknown, the delivery failed, or the send succeeded — so it cannot be used to test account
+  existence. A per-channel failure is logged server-side and never stops the other channel
+  (`password-reset-delivery-slice.md` §7, §9).
+
+  The `resetTokenPreview` and `expiresAt` fields are returned **only** under the dev/test `log`
+  channel **and only** when `NODE_ENV !== "production"` — the local-work affordance. Under the
+  real channels (and in production generally) the response never contains the code.
+
+  ```json
+  { "accepted": true, "message": "If the account exists, a reset instruction has been issued.",
+    "resetTokenPreview": "194270", "expiresAt": "…" }
+  ```
+
+  Delivery is selected by `NOTIFICATION_CHANNEL_DRIVER`
+  (`auto | log | sms | email | sms+email`); see [configuration.md](../configuration.md).
 
 - **Errors:** `AUTH_VALIDATION_FAILED` (400), `AUTH_RATE_LIMITED` (429).
 
 ### 4.7 `POST /api/auth/password-reset/confirm`
 
-- **Request:** `{ "token": "…", "newPassword": "newsecret123" }` (`token` ≥ 16 chars).
+- **Request:** `{ "token": "194270", "newPassword": "newsecret123" }` — `token` is the
+  **6-digit numeric reset code** (exactly `\d{6}`).
 - **Success** `200`: `{ "success": true, "message": "Password updated successfully." }`.
-- **Side effects:** the password hash and `passwordUpdatedAt` are updated, the reset token is
+- **Side effects:** the password hash and `passwordUpdatedAt` are updated, the reset code is
   marked used, and **all active sessions for the user are revoked**.
-- **Errors:** `AUTH_RESET_INVALID` (400 — unknown, used, or expired token),
-  `AUTH_VALIDATION_FAILED` (400).
+- **Errors:** `AUTH_RESET_INVALID` (400 — unknown, used, or expired code),
+  `AUTH_VALIDATION_FAILED` (400), `AUTH_RATE_LIMITED` (429 — the confirm endpoint is
+  rate-limited so the short code cannot be brute-forced within its lifetime; see §5).
 
 ### 4.8 `GET /api/health`
 
@@ -560,11 +580,24 @@ Apply a reply moderation action. Requires the `admin` role.
 - **Errors:** `COMMUNITY_VALIDATION_FAILED` (400), `AUTH_UNAUTHORIZED` (401),
   `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_REPLY_NOT_FOUND` (404), `COMMUNITY_UNKNOWN` (500).
 
+### 4.33 `PATCH /api/auth/profile`
+
+The owner-only account-email edit. Requires an authenticated session (any role); session-checked
+from `okkhor_access`. See [password-reset-delivery-slice.md](password-reset-delivery-slice.md) §6.
+
+- **Request:** `{ "email": "member@example.com" }` to set it, or `{ "email": "" }` to clear it.
+  `email` is optional in the account and validated when present (≤ 160 chars); it is a secondary
+  recovery contact, not an identifier — it is **not unique** and never appears in `PublicProfile`.
+- **Success** `200`: `{ "user": { "…UserProfile…" } }` — the updated profile (with `email` present
+  only when one is set).
+- **Errors:** `AUTH_UNAUTHORIZED` (401 — no/invalid session), `AUTH_VALIDATION_FAILED` (400 — a
+  malformed email).
+
 ## 5. Rate Limiting
 
-Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
-first hop of `x-forwarded-for`, falling back to `x-real-ip`, falling back to the constant
-`"unknown"`. Identifiers are SHA-256 hashed before being used as a key, so raw addresses
+Applied to `register`, `login`, `password-reset/request`, and `password-reset/confirm`. The client
+identifier is the first hop of `x-forwarded-for`, falling back to `x-real-ip`, falling back to the
+constant `"unknown"`. Identifiers are SHA-256 hashed before being used as a key, so raw addresses
 never enter the keyspace.
 
 | Scope | Limit | Window |
@@ -572,6 +605,11 @@ never enter the keyspace.
 | `login` | 10 | 300 s |
 | `register` | 5 | 3600 s |
 | `passwordResetRequest` | 5 | 3600 s |
+| `passwordResetConfirm` | 10 | 900 s (`PASSWORD_RESET_MAX_AGE_SECONDS`) |
+
+The `passwordResetConfirm` window matches the reset code's lifetime, so a 6-digit code cannot be
+brute-forced inside its validity ([password-reset-delivery-slice.md](password-reset-delivery-slice.md)
+§7, §9).
 
 Exceeding a budget returns `AUTH_RATE_LIMITED` (429). **Degradation rule:** if the ephemeral
 store is unavailable, the request is allowed through (rate limiting must not fail the
@@ -705,7 +743,10 @@ sign-in affordance that returns to the item (`/auth?next=/content/[id]`).
 `/profile` is covered by the `/profile/:path*` matcher at the edge; the layout additionally
 resolves the session and renders the page inside the protected workspace chrome, and the page
 re-checks the session and redirects to `/auth?next=/profile` without one
-(see [member-profile-slice.md](member-profile-slice.md)).
+(see [member-profile-slice.md](member-profile-slice.md)). The `PATCH /api/auth/profile` endpoint
+(§4.33), which edits the owner's account email, also re-checks the session from `okkhor_access`
+and returns `AUTH_UNAUTHORIZED` (401) without one — it has no role requirement
+([password-reset-delivery-slice.md](password-reset-delivery-slice.md) §7).
 
 `/u/[id]` is intentionally **not** gated: a member's public footprint (display name, role
 badge, member-since, and published items) is public, matching the public read path. The
