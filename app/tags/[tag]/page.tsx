@@ -34,25 +34,26 @@ export default async function TagBrowsePage({ params }: TagBrowsePageProps) {
 
       <main className="page-shell page-shell--wide">
         <section className="content-band">
-          <div className="section-heading">
+          <header className="page-hero">
             <div>
               <p className="eyebrow eyebrow--blue">Research Topic</p>
-              <h1>{tag}</h1>
+              <h1 className="page-hero__title">{tag}</h1>
+              <p className="page-hero__lead">
+                Published research filed under this topic, newest first.
+              </p>
             </div>
-            <p>Published research filed under this topic, newest first.</p>
-          </div>
+            <div className="page-hero__actions">
+              <Link className="inline-link inline-link--featured" href="/topics">
+                <Icon className="icon-sm" name="arrow-right" />
+                Back to all topics
+              </Link>
+            </div>
+          </header>
 
           <ContentItemList
             emptyMessage={`No published research carries the "${tag}" tag yet.`}
             items={items}
           />
-
-          <p>
-            <Link className="inline-link inline-link--featured" href="/topics">
-              <Icon className="icon-sm" name="arrow-right" />
-              Back to all topics
-            </Link>
-          </p>
         </section>
       </main>
     </div>

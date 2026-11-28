@@ -21,15 +21,22 @@ export default async function CategoryBrowsePage({ params }: CategoryBrowsePageP
 
   return (
     <section className="content-band">
-      <div className="section-heading">
+      <header className="page-hero">
         <div>
-          <span className="pill">Category</span>
-          <h1>{category}</h1>
+          <div className="page-hero__tags">
+            <span className="pill">Category</span>
+          </div>
+          <h1 className="page-hero__title">{category}</h1>
+          <p className="page-hero__lead">
+            Threads filed under this category, newest first. Hidden discussions are never shown here.
+          </p>
         </div>
-        <Link className="inline-link" href="/topics">
-          Back to all topics
-        </Link>
-      </div>
+        <div className="page-hero__actions">
+          <Link className="inline-link" href="/topics">
+            Back to all topics
+          </Link>
+        </div>
+      </header>
 
       <ThreadList
         emptyMessage={`No visible discussions in the "${category}" category yet.`}

@@ -3393,3 +3393,60 @@ code {
     border-left: 0;
   }
 }
+
+/* The topic directory — the Stitch browse idiom: every tag as a card carrying its real item count. */
+.topic-section {
+  margin-top: 34px;
+}
+
+.topic-section__heading {
+  margin: 0 0 16px;
+  font-size: 1.35rem;
+}
+
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topic-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.topic-card:hover {
+  border-color: var(--color-line-strong);
+  background: var(--color-surface-container-high);
+}
+
+.topic-card__link {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.topic-card__link:hover {
+  color: var(--color-primary);
+}
+
+.topic-card__count {
+  flex: none;
+  color: var(--color-outline);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
