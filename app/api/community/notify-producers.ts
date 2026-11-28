@@ -1,3 +1,4 @@
+import { getThread } from "@/src/modules/community/application/community-service";
 import type {
   CommunityReport,
   CommunityReply,
@@ -9,14 +10,14 @@ import type { NotificationType } from "@/src/modules/notifications/domain/notifi
 
 /**
  * Composition-root helper: joins `community` and `notifications` without either module importing
- * the other. The producer routes call these **after** the moderation write has committed; every
- * failure is logged and swallowed so a notification can never fail the moderation action it reports
- * on, and a member is never messaged about their own moderation action (`notifications-slice.md`
- * §7, §8).
+ * the other. The producer routes call these **after** the community write has committed; every
+ * failure is logged and swallowed so a notification can never fail the action it reports on, and a
+ * member is never messaged about their own action (`notifications-slice.md` §7, §8;
+ * `reply-notifications-slice.md` §7, §8).
  */
 
 type NotifyInput = {
-  /** The acting administrator — when they are also the recipient, the notification is suppressed. */
+  /** The acting member — when they are also the recipient, the notification is suppressed. */
   actorId: string;
   recipientId: string;
   type: NotificationType;
@@ -114,4 +115,44 @@ export async function notifyReportOutcome(
     href: "/community",
     dedupeKey: `${isResolve ? "report_resolved" : "report_dismissed"}:${report.id}`,
   });
+}
+
+/**
+ * Notifies every member who is part of a thread — its author and the authors of its prior visible
+ * replies — that a new reply was posted, excluding the replier. Recipients are derived from the
+ * thread's public structure via `getThread`, de-duplicated, and each receives at most one row per
+ * reply (the `reply_posted:<replyId>` dedupe key). The notification carries no reply text and no
+ * replier identity. Best-effort: it runs after the reply commits and a failure is swallowed
+ * (`reply-notifications-slice.md` §6, §7).
+ */
+export async function notifyNewReply(
+  actorId: string,
+  threadId: string,
+  replyId: string,
+): Promise<void> {
+  try {
+    const { thread, replies } = await getThread(threadId);
+
+    const recipientIds = new Set<string>([
+      thread.authorId,
+      ...replies.map((reply) => reply.authorId),
+    ]);
+    recipientIds.delete(actorId);
+
+    await Promise.all(
+      [...recipientIds].map((recipientId) =>
+        notify({
+          actorId,
+          recipientId,
+          type: "reply_posted",
+          title: "New reply in a discussion you're part of",
+          body: "Someone replied to a community thread you're part of. Open it to catch up.",
+          href: `/community/${threadId}`,
+          dedupeKey: `reply_posted:${replyId}`,
+        }),
+      ),
+    );
+  } catch (error) {
+    console.error("[notification] Failed to create reply_posted notifications.", error);
+  }
 }

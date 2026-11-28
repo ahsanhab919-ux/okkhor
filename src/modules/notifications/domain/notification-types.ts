@@ -4,7 +4,11 @@ import type { NotificationDestination } from "@/src/modules/platform/domain/noti
  * The outcome a notification records. Each value is produced by exactly one producer and never
  * copies moderator- or reporter-only data (`notifications-slice.md` §5, §7).
  */
-export type NotificationType = "content_hidden" | "report_resolved" | "report_dismissed";
+export type NotificationType =
+  | "content_hidden"
+  | "report_resolved"
+  | "report_dismissed"
+  | "reply_posted";
 
 /**
  * A single member notification. It records an *outcome* — a title, a body, and a link — never a copy

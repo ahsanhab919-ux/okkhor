@@ -25,7 +25,7 @@ At the current stage the deployed product is intentionally narrow:
 - two protected placeholders (`/community`, `/scholar-verify`)
 - a public research-comprehension read path (`/content`, `/content/[id]`)
 - a per-member "My Library" (`/library`) over saved research items
-- a per-member notifications inbox (`/notifications`) over moderation and report outcomes
+- a per-member notifications inbox (`/notifications`) over moderation, report, and reply outcomes
 - member profile pages — the owner's `/profile` and a public footprint at `/u/[id]`
 - an administrator moderation console (`/admin/community`) over the discussion surface
 - a member report path over threads and replies, with an administrator triage queue
@@ -115,8 +115,9 @@ notification channels POST to the configured SMS/email gateways. Delivery is opt
 degrades to the dev/test `log` channel (see [data-models.md](data-models.md) §5.11,
 [password-reset-delivery-slice.md](password-reset-delivery-slice.md) §9). The `notifications`
 slice reuses that same outbound path: a moderation outcome (a hidden thread/reply, or a closed
-report) is persisted to the recipient's inbox and delivered through the same channels, again
-best-effort ([notifications-slice.md](notifications-slice.md) §8, §9.2).
+report), or a new reply, is persisted to the recipient's inbox and delivered through the same
+channels, again best-effort ([notifications-slice.md](notifications-slice.md) §8, §9.2;
+[reply-notifications-slice.md](reply-notifications-slice.md) §8, §9).
 
 ## 6. Request Lifecycle
 
@@ -138,10 +139,11 @@ best-effort ([notifications-slice.md](notifications-slice.md) §8, §9.2).
    notification channels (SMS always, email too when the account has one). The send is
    server-side only, so the neutral HTTP response is unchanged and the code never reaches the
    browser ([password-reset-delivery-slice.md](password-reset-delivery-slice.md) §7, §9).
-7. A moderation outcome additionally performs a **persist-then-deliver** step: the `notifications`
-   slice writes a record to the recipient's inbox and hands a `NotificationMessage` to the same
-   `platform` channels. The write happens first and the send is best-effort, so a failed gateway
-   never changes the producer's response ([notifications-slice.md](notifications-slice.md) §7, §8).
+7. A moderation outcome or a new reply additionally performs a **persist-then-deliver** step: the
+   `notifications` slice writes a record to the recipient's inbox and hands a `NotificationMessage`
+   to the same `platform` channels. The write happens first and the send is best-effort, so a failed
+   gateway never changes the producer's response ([notifications-slice.md](notifications-slice.md)
+   §7, §8; [reply-notifications-slice.md](reply-notifications-slice.md) §6, §7).
 
 Middleware is intentionally thin: it only gates routes. Authorization that depends on
 business state is enforced inside the application layer (`ADR-001`: authorization rules must
@@ -163,7 +165,7 @@ visibility — only an explicit hide/restore action does
 | `experience` | `src/modules/experience/**` | Public site content and presentational/UI building blocks | Implemented |
 | `content` | `src/modules/content/**` | Research-item comprehension: published list/detail read path | Implemented (read path) |
 | `library` | `src/modules/library/**` | Per-member saved research items ("My Library") | Implemented |
-| `notifications` | `src/modules/notifications/**` | Per-member inbox: persistence + best-effort delivery of moderation/report outcomes | Implemented |
+| `notifications` | `src/modules/notifications/**` | Per-member inbox: persistence + best-effort delivery of moderation/report/reply outcomes | Implemented |
 
 Planned domains (Search, Recommendations, Localization, Analytics, Video, Rules
 Engine, Operational Intelligence) do not exist yet and must not be simulated ahead of a

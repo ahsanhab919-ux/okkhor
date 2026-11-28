@@ -137,6 +137,32 @@ describe("notification service", () => {
     expect(await listNotifications(member)).toHaveLength(1);
   });
 
+  it("stores and delivers a reply_posted notification, one row per recipient per reply", async () => {
+    const { channel, send } = captureChannel();
+    channelState.channels = [channel];
+
+    const reply = input({
+      type: "reply_posted",
+      title: "New reply in a discussion you're part of",
+      body: "Someone replied to a community thread you're part of. Open it to catch up.",
+      href: "/community/thread-1",
+      dedupeKey: "reply_posted:reply-9",
+      destination: { phoneNumber: "+8801" },
+    });
+
+    const first = await createNotification(reply);
+    const sameRecipientAgain = await createNotification(reply);
+    const otherRecipient = await createNotification({ ...reply, recipientId: other.id });
+
+    expect(first.created).toBe(true);
+    expect(first.notification.type).toBe("reply_posted");
+    expect(sameRecipientAgain.created).toBe(false);
+    expect(otherRecipient.created).toBe(true);
+    expect(await listNotifications(member)).toHaveLength(1);
+    expect(await listNotifications(other)).toHaveLength(1);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
   it("lists only the member's notifications, newest first", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
 
