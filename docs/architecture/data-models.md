@@ -102,12 +102,17 @@ The published research-comprehension unit. Defined in
 Related types: `ResearchItemStatus`, `ContentAuthor` (`{ id, roles }`), `CreateItemInput`,
 `UpdateItemInput` (adds the optional `updatedAt` concurrency token), and `ContentRepository`
 (`listPublishedItems`, `listItems`, `getPublishedItemById`, `getPublishedItemsByIds`,
-`listPublishedItemsByAuthor`, `getItemById`, `createItem`, `updateItemIfUnchanged`).
+`listPublishedItemsByAuthor`, `listDistinctPublishedTags`, `listPublishedItemsByTag`,
+`getItemById`, `createItem`, `updateItemIfUnchanged`).
 `listPublishedItems`/`getPublishedItemById`/`getPublishedItemsByIds` are the public read path
 (published only); `listPublishedItemsByAuthor` is the profile read (one author's published
-items, `publishedAt` descending); `listItems`/`getItemById` are the authoring path and return
-drafts too. Pagination types: `ContentCursor = { publishedAt, id }`, `ListPublishedItemsOptions`,
-`ListPublishedItemsResult`, and `ListItemsByAuthorOptions` (`{ limit }`).
+items, `publishedAt` descending); `listDistinctPublishedTags` and `listPublishedItemsByTag`
+are the browse reads (see `topic-browse-slice.md`) — the former returns published
+counts keyed by tag (`TagCount = { tag, count }`, count descending then tag ascending), the
+latter returns one exact tag's published items `publishedAt` descending, capped by `limit`;
+`listItems`/`getItemById` are the authoring path and return drafts too. Pagination types:
+`ContentCursor = { publishedAt, id }`, `ListPublishedItemsOptions`, `ListPublishedItemsResult`,
+`ListItemsByAuthorOptions` (`{ limit }`), and `ListPublishedItemsByTagOptions` (`{ limit }`).
 
 ### 2.7 `ScholarVerification` (verification)
 
@@ -181,11 +186,17 @@ Related types: `ModerationState = "visible" | "hidden"`, `ModerationAction = "hi
 (`CommunityThread & { replyCount }`, derived on the list read), `CommunityThreadDetail`
 (`{ thread, replies }`), `CommunityActor` (`{ id, roles }`), `CreateThreadInput`,
 `CreateReplyInput`, `CommunityCursor = { createdAt, id }`, `ListThreadsOptions`,
-`ListRepliesOptions`, `ListThreadsResult`, and `CommunityRepository` (`listThreads`,
-`listThreadsByAuthor`, `getThreadById`, `createThread`, `listRepliesByThreadId`, `createReply`,
+`ListThreadsByCategoryOptions` (`{ limit?; cursor? }`), `TagCount`-style `CategoryCount`
+(`{ category, count }`), `ListRepliesOptions`, `ListThreadsResult`, and `CommunityRepository`
+(`listThreads`, `listThreadsByAuthor`, `listDistinctCategories`, `listThreadsByCategory`,
+`getThreadById`, `createThread`, `listRepliesByThreadId`, `createReply`,
 `getReplyById`, `updateThreadModeration`, `updateReplyModeration`).
 `listThreadsByAuthor` is the profile read (one author's threads, `createdAt` descending) and is
-always visible-only.
+always visible-only. `listDistinctCategories` and `listThreadsByCategory` are the browse reads
+(see `topic-browse-slice.md`): the former returns visible-thread counts keyed by category
+(`CategoryCount = { category, count }`, count descending then category ascending), the latter
+returns one category's visible threads `createdAt` descending with keyset pagination — **both
+are always visible-only**, so a hidden thread can never leak through a category count or list.
 `replyCount` is derived, never stored — a correlated subquery in PostgreSQL, a scan over the
 replies map in memory.
 **Moderation visibility is a repository rule** (`community-moderation-slice.md` §5):
@@ -284,9 +295,11 @@ and `scholar_verifications` (§3.5) by
 `migrations/20261128120000_create_community_tables.cjs` (see `community-slice.md`), and
 `saved_items` (§3.8) by `migrations/20261128130000_create_saved_items.cjs` (see
 `library-slice.md`); the two member-author indexes that back the profile reads are added by
-`migrations/20261128140000_add_member_author_indexes.cjs` (see `member-profile-slice.md`); and
-the community moderation columns (§3.6–§3.7) by
-`migrations/20261128160000_add_community_moderation.cjs` (see `community-moderation-slice.md`).
+`migrations/20261128140000_add_member_author_indexes.cjs` (see `member-profile-slice.md`); the
+community moderation columns (§3.6–§3.7) by
+`migrations/20261128160000_add_community_moderation.cjs` (see `community-moderation-slice.md`);
+and the two topic-browse indexes (§3.4, §3.6) by
+`migrations/20261128170000_add_topic_browse_indexes.cjs` (see `topic-browse-slice.md`).
 Timestamps are stored as ISO-8601
 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
 portability is preferred over database-side timezone arithmetic; `roles`, `tags`, `degrees`,
@@ -356,6 +369,12 @@ authoring view (`listItems`) reads every status ordered by `updated_at DESC, id 
 Index: `content_items_author_id_published_at_idx` on `(author_id, published_at)` to support the
 profile read (`WHERE author_id = $1 AND status = 'published' ORDER BY published_at DESC, id
 DESC LIMIT $2`).
+Index: `content_items_tags_gin_idx` — a **GIN** index on `tags` — to support the browse reads:
+the tag search (`WHERE status = 'published' AND tags @> $1::jsonb ORDER BY published_at DESC,
+id DESC LIMIT $2`) and the distinct-tag rollup
+(`FROM content_items, jsonb_array_elements_text(tags) AS tag WHERE status = 'published' GROUP BY
+tag ORDER BY count DESC, tag ASC`). Both come from
+`migrations/20261128170000_add_topic_browse_indexes.cjs` (see `topic-browse-slice.md`).
 
 ### 3.5 `scholar_verifications`
 
@@ -405,6 +424,11 @@ Index: `community_threads_created_at_id_idx` on `(created_at, id)` to support th
 `"<createdAt>|<id>"` codec used by the content read path.
 Index: `community_threads_author_id_created_at_idx` on `(author_id, created_at)` to support the
 profile read (`WHERE author_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`).
+Index: `community_threads_category_created_at_idx` on `(category, created_at)` to support the
+category browse read (`WHERE moderation_state = 'visible' AND category = $1 ORDER BY created_at
+DESC, id DESC LIMIT $2`) and the distinct-category rollup
+(`WHERE moderation_state = 'visible' GROUP BY category ORDER BY count DESC, category ASC`); it
+comes from `migrations/20261128170000_add_topic_browse_indexes.cjs` (see `topic-browse-slice.md`).
 The member list adds `AND moderation_state = 'visible'`; the moderator queue omits it. The
 columns are added by `migrations/20261128160000_add_community_moderation.cjs`, all additive and
 defaulted, so existing rows backfill to `visible`/`false` with no rewrite
@@ -460,7 +484,10 @@ both indexes, then `community_replies`, then `community_threads`; the library mi
 `down` drops the index, then `saved_items`; the member-profile migration's `down` drops the two
 author indexes (`community_threads_author_id_created_at_idx` then
 `content_items_author_id_published_at_idx`) and touches no table; the community-moderation
-migration's `down` drops the reply moderation columns before the thread moderation columns.
+migration's `down` drops the reply moderation columns before the thread moderation columns;
+the topic-browse migration's `down` drops both browse indexes
+(`community_threads_category_created_at_idx` then `content_items_tags_gin_idx`) and touches no
+table.
 
 ## 4. In-Memory Store
 
@@ -487,8 +514,11 @@ single `items: Map<string, ResearchItem>` keyed by `id`. `listPublishedItems` fi
 `status === "published"`, sorts by `publishedAt`/`id` descending, applies the keyset cursor,
 and slices to the requested limit; `getPublishedItemById` returns `undefined` for drafts or
 unknown ids; `listPublishedItemsByAuthor` filters to one author's published items sorted by
-`publishedAt`/`id` descending and truncates to the limit. The authoring methods mirror the read
-path: `listItems` returns every status
+`publishedAt`/`id` descending and truncates to the limit; `listDistinctPublishedTags` scans the
+items, counts published items per tag, and returns `TagCount`s sorted by count descending then
+tag ascending; `listPublishedItemsByTag` filters to published items carrying the exact tag,
+sorted by `publishedAt`/`id` descending and truncated to the limit. The authoring methods
+mirror the read path: `listItems` returns every status
 sorted by `updatedAt`/`id` descending, `getItemById` returns drafts too, and
 `updateItemIfUnchanged` writes only when the stored `updatedAt` matches the expected value
 (returning `false` otherwise, which the service turns into a `409`). Like the identity store
@@ -515,7 +545,11 @@ Defined in `src/modules/community/infrastructure/community-store.ts`. `Community
 `nextCursor` while a further page remains). `listRepliesByThreadId` filters by `threadId` and
 sorts ascending, omitting hidden replies unless `includeHidden`; `listThreadsByAuthor` filters
 to one author's **visible** threads sorted by `createdAt`/`id` descending and derives
-`replyCount` for each. `getReplyById` returns a reply in any state; `updateThreadModeration` and
+`replyCount` for each; `listDistinctCategories` counts **visible** threads per category and
+returns `CategoryCount`s sorted by count descending then category ascending;
+`listThreadsByCategory` returns one category's **visible** threads sorted by `createdAt`/`id`
+descending with the same keyset cursor and derived `replyCount`. `getReplyById` returns a reply
+in any state; `updateThreadModeration` and
 `updateReplyModeration` overwrite the stored row's moderation columns. Like the other stores
 it is cached on `globalThis`
 (`__okkhorCommunityStore`) and replaced between tests by `resetCommunityStoreForTesting()`.
@@ -602,7 +636,10 @@ CONTENT_STORAGE_DRIVER = auto | memory | postgres   (default: auto)
 
 Both implementations satisfy the `ContentRepository` interface. Application code calls
 `getContentRepository()`; the driver is independent of `AUTH_STORAGE_DRIVER` so the two
-modules can be pointed at different stores.
+modules can be pointed at different stores. The postgres browse reads are the tag search
+(`tags @> $1::jsonb`, backed by the `content_items_tags_gin_idx` GIN index) and the
+distinct-tag rollup (`jsonb_array_elements_text(tags)` grouped by tag) added by
+`topic-browse-slice.md`.
 
 ### 5.5 Verification repository
 
@@ -644,7 +681,11 @@ postgres list read is a keyset query with a correlated subquery for `replyCount`
 the member list/reply reads add `moderation_state = 'visible'` (the moderator reads omit it), the
 `replyCount` subquery filters visible replies, and `updateThreadModeration`/`updateReplyModeration`
 issue `UPDATE … SET moderation_state = $1, locked = $2, moderated_by = $3, moderated_at = $4,
-moderation_note = $5 WHERE id = $6` (the reply form without `locked`).
+moderation_note = $5 WHERE id = $6` (the reply form without `locked`). The postgres browse reads
+added by `topic-browse-slice.md` are always visible-only: the category list
+(`WHERE moderation_state = 'visible' AND category = $1`, with the same keyset cursor and
+correlated visible `replyCount` subquery, backed by `community_threads_category_created_at_idx`)
+and the distinct-category rollup (`WHERE moderation_state = 'visible' GROUP BY category`).
 
 ### 5.7 Search repository
 
@@ -763,6 +804,7 @@ Automatic retention jobs are future work, not a current behaviour.
 - `src/modules/community/infrastructure/postgres-community-repository.ts` — community SQL implementation
 - `migrations/20261128130000_create_saved_items.cjs` — `saved_items` schema of record
 - `migrations/20261128140000_add_member_author_indexes.cjs` — member-author indexes for the profile reads
+- `migrations/20261128170000_add_topic_browse_indexes.cjs` — GIN tag index on `content_items` and category index on `community_threads` for the browse reads
 - `src/modules/library/domain/library-types.ts` — library domain types
 - `src/modules/library/infrastructure/library-store.ts` — in-memory library store
 - `src/modules/library/infrastructure/postgres-library-repository.ts` — library SQL implementation

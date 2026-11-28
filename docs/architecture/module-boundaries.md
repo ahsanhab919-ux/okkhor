@@ -132,6 +132,11 @@ Postgres pool config and on nothing else at module level; it does not import `id
 is the second fully-layered module after `identity` and should be read alongside it when
 adding a new domain.
 
+The **topic-browse slice** widens `content`'s read surface with two public reads — the
+distinct-published-tag rollup and the published-by-tag list — both owned by the module and
+exercised at the composition root (`app/topics`, `app/tags/[tag]`). No new module or edge is
+added.
+
 ### 5.5 `verification` — implemented, fully layered
 
 ```
@@ -183,6 +188,11 @@ existing `CommunityThread`/`CommunityReply` types, and `moderation-controls.tsx`
 island alongside the create/reply forms. The moderator surfaces are composed in `app/admin/community/**`
 and the actor is resolved by `app/community-session.ts` — the same composition-root pattern as the
 rest of `community`.
+
+The **topic-browse slice** likewise stays internal to `community`: it adds two visible-only
+repository reads (the distinct-category rollup and the threads-by-category list) and no new
+module, entity, or edge. The category pages are composed in `app/categories/**` and reuse the
+existing `ThreadList` presentational component.
 
 ### 5.7 `search` — implemented, fully layered
 
@@ -294,6 +304,12 @@ Current dependency edges (verified in code):
   repository methods, and one `ui` island); the moderator routes and pages are composed in
   `app/admin/community/**`, and the acting administrator is resolved by the shared
   `app/community-session.ts` composition-root helper.
+- The **topic-browse slice** adds no new module and no new cross-module edge. The browse reads
+  live in the modules that already own the data — content `listDistinctPublishedTags` /
+  `listPublishedItemsByTag`, community `listDistinctCategories` / `listThreadsByCategory` — and
+  the composition root (`app/topics/**`, `app/tags/**`, `app/categories/**`) joins them. The
+  community reads stay visible-only at the repository, so the browse surfaces never widen what
+  a member can see beyond the existing discussion list.
 
 Rules that follow:
 

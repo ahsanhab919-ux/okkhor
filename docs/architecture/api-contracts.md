@@ -661,7 +661,7 @@ truth is `src/modules/library/domain/library-errors.ts`:
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
 
-- matchers: `/search/:path*`, `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`, `/library/:path*`, `/profile/:path*`
+- matchers: `/search/:path*`, `/community/:path*`, `/categories/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`, `/library/:path*`, `/profile/:path*`
 - behaviour: verify `okkhor_access` at the edge; on missing/invalid token redirect to
   `/auth?next=<original-path>`.
 
@@ -712,6 +712,18 @@ badge, member-since, and published items) is public, matching the public read pa
 members-only community-threads section is rendered only for a signed-in viewer; an anonymous
 visitor gets a sign-in prompt (`/auth?next=/u/[id]`). An unknown id renders the route's
 `not-found`. See [member-profile-slice.md](member-profile-slice.md) §7.
+
+The browse surfaces split on audience. `/topics` (the browse index) and `/tags/[tag]`
+(research by tag) are **not** gated: the research-tag reads are public, matching the public
+read path, so the pages render for anonymous visitors too. Only the community-category
+section of `/topics` is members-only: a signed-in viewer sees the category counts, an
+anonymous visitor gets a sign-in prompt (`/auth?next=/topics`). `/categories/[category]`
+(community threads by category) is covered by the `/categories/:path*` matcher at the edge;
+the layout resolves the session and renders the page inside the protected workspace chrome,
+and every category read filters `moderation_state = 'visible'` in the repository so a hidden
+thread cannot leak through a count or list. There is **no new HTTP endpoint** for these
+surfaces — they reuse the existing content/community modules' reads at the composition root
+(see [topic-browse-slice.md](topic-browse-slice.md) §6–§7).
 
 ## 8. Client Usage
 

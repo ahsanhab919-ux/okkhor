@@ -33,7 +33,9 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
     <section className="content-band">
       <div className="section-heading">
         <div>
-          <span className="pill">{thread.category}</span>
+          <Link className="pill" href={`/categories/${encodeURIComponent(thread.category)}`}>
+            {thread.category}
+          </Link>
           {thread.locked ? <span className="pill">Locked</span> : null}
           <h1>{thread.title}</h1>
           <p>Started {thread.createdAt.slice(0, 10)}</p>

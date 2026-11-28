@@ -122,6 +122,16 @@ server-safe `ProfileCard` (`src/modules/identity/ui/profile-card.tsx`), `Content
 ships no JavaScript beyond the shared chrome; the extracted `ThreadList` is server-safe and is
 reused unchanged by the community hub.
 
+The topic-browse slice adds **no** client island and **three** server-component pages.
+`app/topics/page.tsx` resolves both browse reads server-side and renders the research-tag
+section for everyone (with a sign-in prompt for the category section when no viewer is
+present); `app/tags/[tag]/page.tsx` and `app/categories/[category]/page.tsx` render the
+server-safe `ContentItemList` (`content-views.tsx`) and `ThreadList`
+(`src/modules/community/ui/thread-list.tsx`) directly. The `/content/[id]` and
+`/community/[id]` detail pages gained tag/category links but remain server components (the
+only island on the detail pages is the pre-existing `SaveItemButton` on `/content/[id]`), so
+browse ships no JavaScript beyond the shared chrome.
+
 ## 6. Import Graph Nuance
 
 `src/modules/experience/ui.tsx` has **no** `"use client"` directive and is therefore

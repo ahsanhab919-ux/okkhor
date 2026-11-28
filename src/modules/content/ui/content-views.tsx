@@ -12,9 +12,9 @@ function ItemTags({ tags }: { tags: string[] }) {
   return (
     <div>
       {tags.map((tag) => (
-        <span key={tag} className="pill">
+        <Link key={tag} className="pill" href={`/tags/${encodeURIComponent(tag)}`}>
           {tag}
-        </span>
+        </Link>
       ))}
     </div>
   );
