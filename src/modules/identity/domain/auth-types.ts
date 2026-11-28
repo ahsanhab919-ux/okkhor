@@ -16,6 +16,12 @@ export type UserRecord = UserProfile & {
   passwordHash: string;
 };
 
+/** A minimal author label: the id and the name to show for it. */
+export type UserProfileLabel = {
+  id: string;
+  displayName: string;
+};
+
 export type AuthSessionRecord = {
   id: string;
   userId: string;
@@ -70,6 +76,8 @@ export type AuthStore = {
 export type AuthRepository = {
   getUserById(id: string): Promise<UserRecord | undefined>;
   getUserByPhone(phoneNumber: string): Promise<UserRecord | undefined>;
+  /** Display labels for the given ids; unknown ids are omitted. */
+  listProfilesByIds(ids: string[]): Promise<UserProfileLabel[]>;
   createUser(user: UserRecord): Promise<void>;
   updateUser(user: UserRecord): Promise<void>;
   getSessionById(id: string): Promise<AuthSessionRecord | undefined>;

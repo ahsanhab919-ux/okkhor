@@ -393,6 +393,31 @@ Add a reply to a thread. Requires an authenticated session (any role).
 - **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_VALIDATION_FAILED` (400),
   `COMMUNITY_THREAD_NOT_FOUND` (404 — unknown parent thread), `COMMUNITY_UNKNOWN` (500).
 
+### 4.23 `GET /api/search`
+
+Unified keyword/metadata search over published research items and community threads. Requires
+an authenticated session (any role). See [discovery-slice.md](discovery-slice.md).
+
+- **Query:** `?q=&kind=&tag=&category=&author=&sort=&limit=`
+  - `q` — required; trimmed, 1–120 characters. Every whitespace-separated token must appear
+    (case-insensitively) in a document's title, body, or tag/category text.
+  - `kind` — `all` (default) \| `research` \| `thread`.
+  - `tag` — research-tag filter (restricts to research items).
+  - `category` — community-category filter (restricts to threads).
+  - `author` — an author id; narrows both research items and threads to that member.
+  - `sort` — `relevance` (default) \| `newest`.
+  - `limit` — default `20`, clamped to `[1, 50]`.
+- **Success** `200`:
+
+  ```json
+  { "hits": [ { "…SearchHit…" } ], "total": 12 }
+  ```
+
+  Each hit is `{ kind, id, title, excerpt, tags, authorId?, createdAt, href, score }`. `href` is
+  `/content/[id]` for research and `/community/[id]` for threads. `total` is the match count
+  before the `limit` truncation.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `SEARCH_VALIDATION_FAILED` (400), `SEARCH_UNKNOWN` (500).
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -461,11 +486,19 @@ The community endpoints use a parallel set of codes, whose executable source of 
 | `COMMUNITY_THREAD_NOT_FOUND` | 404 | Thread id is unknown |
 | `COMMUNITY_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
+The search endpoint uses a parallel set of codes, whose executable source of truth is
+`src/modules/search/domain/search-errors.ts`:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `SEARCH_VALIDATION_FAILED` | 400 | Query parameters failed schema validation (empty/over-long `q`, unknown `kind`/`sort`) |
+| `SEARCH_UNKNOWN` | 500 | Unhandled failure (fallback) |
+
 ## 7. Route Protection (non-API)
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
 
-- matchers: `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`
+- matchers: `/search/:path*`, `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`
 - behaviour: verify `okkhor_access` at the edge; on missing/invalid token redirect to
   `/auth?next=<original-path>`.
 
@@ -482,6 +515,12 @@ matcher at the edge; the layout additionally resolves the session and renders th
 the protected workspace chrome (see [community-slice.md](community-slice.md)). The community
 endpoints (§4.19–§4.22) re-check the session defensively and return `AUTH_UNAUTHORIZED` (401)
 without one — there is no role requirement.
+
+`/search` is covered by the `/search/:path*` matcher at the edge; the layout additionally
+resolves the session and renders the pages inside the protected workspace chrome. The
+`GET /api/search` endpoint (§4.23) re-checks the session defensively and returns
+`AUTH_UNAUTHORIZED` (401) without one. Because discovery is members-only, the search index
+must never surface member-only community threads to anonymous visitors (`ADR-006`).
 
 The `/content` and `/content/[id]` pages are **not** gated: the read path is intentionally
 public (see `content-comprehension-slice.md`).

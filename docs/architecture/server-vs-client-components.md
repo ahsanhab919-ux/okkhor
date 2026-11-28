@@ -67,6 +67,7 @@ Exactly these files carry `"use client"` (the interactive islands):
 | `src/modules/verification/ui/verification-review.tsx` | admin decision `useState`, approve/reject handlers, `useRouter` | drives `PATCH /api/verification/applications/[id]` |
 | `src/modules/community/ui/thread-form.tsx` | create-thread form `useState`, submit handler, `useRouter` | drives `POST /api/community/threads` |
 | `src/modules/community/ui/reply-form.tsx` | reply form `useState`, submit handler, `router.refresh()` | drives `POST /api/community/threads/[id]/replies` |
+| `src/modules/search/ui/search-form.tsx` | search form `useState`, submit handler, `useRouter` | pushes query params to `/search` (server reads them) |
 
 `src/modules/identity/client/session-client.ts` is also `"use client"` but is a **helper
 module**, not a component: it wraps `fetch` against the auth API with
@@ -88,6 +89,12 @@ The `community` module adds **two** islands — the create-thread form (`thread-
 reply form (`reply-form.tsx`). The list, thread, and new pages are server components that load
 their data server-side; each island owns only its local form state and posts to the community
 API, then navigates (`thread-form`) or refreshes (`reply-form`) on success.
+
+The `search` module adds **one** island — the query form (`search-form.tsx`) — alongside the
+server-safe `search-results.tsx` view. `app/search/page.tsx` is a server component: it reads
+`searchParams`, runs the discovery query server-side, and renders the results. The island owns
+only the filter inputs and, on submit, pushes the normalized query string to `/search` (then
+`router.refresh()`); it never calls the search API directly.
 
 ## 6. Import Graph Nuance
 

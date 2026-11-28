@@ -30,6 +30,14 @@ function createMemoryAuthRepository(): AuthRepository {
 
       return userId ? store.usersById.get(userId) : undefined;
     },
+    async listProfilesByIds(ids) {
+      const store = getAuthStore();
+
+      return ids
+        .map((id) => store.usersById.get(id))
+        .filter((user): user is UserRecord => user !== undefined)
+        .map((user) => ({ id: user.id, displayName: user.displayName }));
+    },
     async createUser(user) {
       const store = getAuthStore();
       store.usersById.set(user.id, user);
