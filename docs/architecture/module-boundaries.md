@@ -407,6 +407,12 @@ Current dependency edges (verified in code):
   composes them in one route (`app/admin/users/page.tsx`). `listMembers` re-checks the `admin` role
   itself, exactly like `grantUserRole`, so the roster never depends on the caller's gate. The page is
   reached from the `/admin` console hub, which is how the admin family is discovered.
+- The **system configuration slice** adds no module, no edge, and no persistence. The platform has no
+  settings store and no settings table, so the route (`app/admin/settings/page.tsx`) only composes
+  reads that already exist — `platform`'s `getRuntimeStatus`/`getPlatformHighlights`, `identity`'s
+  `AUTH_RATE_LIMITS`, and the token/reset-code lifetimes from `auth-config` — and renders them
+  read-only, inventing no control the platform cannot honour (`ADR-001`). Like the other console
+  surfaces it is reached from the `/admin` hub.
 
 Rules that follow:
 
