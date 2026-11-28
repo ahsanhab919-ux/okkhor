@@ -73,6 +73,10 @@ export type ListPublishedItemsResult = {
   nextCursor?: ContentCursor;
 };
 
+export type ListItemsByAuthorOptions = {
+  limit: number;
+};
+
 export type ContentRepository = {
   listPublishedItems(options: ListPublishedItemsOptions): Promise<ListPublishedItemsResult>;
   /** All items regardless of status, newest-edited first. The authoring view. */
@@ -83,6 +87,11 @@ export type ContentRepository = {
    * published item are omitted. Used by the composition root to hydrate a saved list.
    */
   getPublishedItemsByIds(ids: string[]): Promise<ResearchItem[]>;
+  /**
+   * The author's published items, `publishedAt` descending then `id` descending, truncated to
+   * `limit`. Used by the composition root to render a member profile.
+   */
+  listPublishedItemsByAuthor(authorId: string, options: ListItemsByAuthorOptions): Promise<ResearchItem[]>;
   /** Any item regardless of status. The authoring path. */
   getItemById(id: string): Promise<ResearchItem | undefined>;
   createItem(item: ResearchItem): Promise<void>;

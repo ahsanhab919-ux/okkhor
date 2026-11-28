@@ -61,6 +61,13 @@ function createMemoryCommunityRepository(): CommunityRepository {
     async getThreadById(id) {
       return getCommunityStore().threads.get(id);
     },
+    async listThreadsByAuthor(authorId, { limit }) {
+      return Array.from(getCommunityStore().threads.values())
+        .filter((thread) => thread.authorId === authorId)
+        .sort(compareThreadsByCreatedDesc)
+        .slice(0, limit)
+        .map((thread) => ({ ...thread, replyCount: countRepliesForThread(thread.id) }));
+    },
     async createThread(thread) {
       getCommunityStore().threads.set(thread.id, thread);
     },

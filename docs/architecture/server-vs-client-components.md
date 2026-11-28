@@ -114,6 +114,14 @@ server component: it resolves an *optional* viewer and the saved state server-si
 the island, so an anonymous visitor gets a sign-in link and no toggle state is shipped to the
 client until a member arrives.
 
+The member-profile slice adds **no** client island. `/profile` and `/u/[id]` are server
+components that resolve the viewer (and, on `/u/[id]`, an optional viewer) and render the
+server-safe `ProfileCard` (`src/modules/identity/ui/profile-card.tsx`), `ContentItemList`
+(`content-views.tsx`, now with an optional `showStatus` pill for the owner's drafts), and
+`ThreadList` (`src/modules/community/ui/thread-list.tsx`) directly. Reading a profile therefore
+ships no JavaScript beyond the shared chrome; the extracted `ThreadList` is server-safe and is
+reused unchanged by the community hub.
+
 ## 6. Import Graph Nuance
 
 `src/modules/experience/ui.tsx` has **no** `"use client"` directive and is therefore

@@ -58,6 +58,11 @@ export async function isItemSaved(actor: LibraryActor, itemId: string): Promise<
   return getLibraryRepository().isItemSaved(actor.id, itemId);
 }
 
+/** The exact number of items the acting member has saved — the profile rollup. */
+export async function countSavedItems(actor: LibraryActor): Promise<number> {
+  return getLibraryRepository().countSavedItems(actor.id);
+}
+
 /**
  * Saves a research item for the acting member. The write is idempotent on `(userId, itemId)`, so a
  * second save succeeds without a duplicate and returns the save that is already stored.

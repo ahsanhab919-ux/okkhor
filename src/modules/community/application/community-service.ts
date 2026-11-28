@@ -69,6 +69,21 @@ export async function listThreads(input: ListThreadsInput = {}): Promise<ThreadP
   };
 }
 
+export type ListThreadsByAuthorInput = {
+  limit?: number;
+};
+
+/**
+ * The author's threads, newest first, capped — the profile public read. Called by the composition
+ * root, which owns the identity join; the module never resolves a name.
+ */
+export async function listThreadsByAuthor(
+  authorId: string,
+  input: ListThreadsByAuthorInput = {},
+): Promise<CommunityThreadSummary[]> {
+  return getCommunityRepository().listThreadsByAuthor(authorId, { limit: normalizeLimit(input.limit) });
+}
+
 export async function createThread(actor: CommunityActor, input: CreateThreadInput): Promise<CommunityThread> {
   const parsed = parseCommunitySchema(createThreadSchema, input);
   const now = new Date().toISOString();

@@ -39,6 +39,17 @@ function createMemoryLibraryRepository(): LibraryRepository {
     async isItemSaved(userId, itemId) {
       return getLibraryStore().saves.has(storeKey(userId, itemId));
     },
+    async countSavedItems(userId) {
+      let count = 0;
+
+      for (const save of getLibraryStore().saves.values()) {
+        if (save.userId === userId) {
+          count += 1;
+        }
+      }
+
+      return count;
+    },
     async saveItem(item) {
       const key = storeKey(item.userId, item.itemId);
       const existing = getLibraryStore().saves.get(key);

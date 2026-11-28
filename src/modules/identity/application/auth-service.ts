@@ -24,6 +24,7 @@ import type {
   AuthSessionRecord,
   AuthSuccess,
   PasswordResetRecord,
+  PublicProfile,
   UserProfile,
   UserProfileLabel,
   UserRecord,
@@ -202,6 +203,27 @@ export async function getUserProfilesByIds(ids: string[]): Promise<UserProfileLa
   const uniqueIds = Array.from(new Set(ids));
 
   return getAuthRepository().listProfilesByIds(uniqueIds);
+}
+
+/**
+ * Resolves the public footprint of a member through identity's public surface, or `undefined`
+ * when no such member exists. Returns only the `PublicProfile` view — never the phone number or
+ * password metadata — so the profile pages cannot leak sensitive fields
+ * (`member-profile-slice.md` §5, §7).
+ */
+export async function getPublicProfile(id: string): Promise<PublicProfile | undefined> {
+  const user = await getAuthRepository().getUserById(id);
+
+  if (!user) {
+    return undefined;
+  }
+
+  return {
+    id: user.id,
+    displayName: user.displayName,
+    roles: user.roles,
+    createdAt: user.createdAt,
+  };
 }
 
 export async function refreshUserSession(refreshToken: string): Promise<AuthSuccess> {

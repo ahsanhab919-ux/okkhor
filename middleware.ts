@@ -36,5 +36,6 @@ export const config = {
     "/studio/:path*",
     "/admin/:path*",
     "/library/:path*",
+    "/profile/:path*",
   ],
 };

@@ -39,6 +39,11 @@ The publicly safe view of a user (no secrets).
 | `lastLoginAt` | `string` (ISO), optional | Set on session creation |
 | `passwordUpdatedAt` | `string` (ISO) | Set on register and password reset |
 
+The profile read surface exports `PublicProfile = { id, displayName, roles, createdAt }` (via
+`getPublicProfile` in `auth-service.ts`): the identity fields a member profile may show. It
+never carries `phoneNumber`, `passwordHash`, or `passwordUpdatedAt`, so a profile page cannot
+leak a member's contact details (see [member-profile-slice.md](member-profile-slice.md) §7).
+
 ### 2.2 `UserRecord = UserProfile & { passwordHash: string }`
 
 The stored form. `passwordHash` never leaves the application layer — `sanitizeUser()`
@@ -96,11 +101,13 @@ The published research-comprehension unit. Defined in
 
 Related types: `ResearchItemStatus`, `ContentAuthor` (`{ id, roles }`), `CreateItemInput`,
 `UpdateItemInput` (adds the optional `updatedAt` concurrency token), and `ContentRepository`
-(`listPublishedItems`, `listItems`, `getPublishedItemById`, `getItemById`, `createItem`,
-`updateItemIfUnchanged`). `listPublishedItems`/`getPublishedItemById` are the public read path
-(published only); `listItems`/`getItemById` are the authoring path and return drafts too.
-Pagination types: `ContentCursor = { publishedAt, id }`, `ListPublishedItemsOptions`,
-`ListPublishedItemsResult`.
+(`listPublishedItems`, `listItems`, `getPublishedItemById`, `getPublishedItemsByIds`,
+`listPublishedItemsByAuthor`, `getItemById`, `createItem`, `updateItemIfUnchanged`).
+`listPublishedItems`/`getPublishedItemById`/`getPublishedItemsByIds` are the public read path
+(published only); `listPublishedItemsByAuthor` is the profile read (one author's published
+items, `publishedAt` descending); `listItems`/`getItemById` are the authoring path and return
+drafts too. Pagination types: `ContentCursor = { publishedAt, id }`, `ListPublishedItemsOptions`,
+`ListPublishedItemsResult`, and `ListItemsByAuthorOptions` (`{ limit }`).
 
 ### 2.7 `ScholarVerification` (verification)
 
@@ -164,9 +171,10 @@ Related types: `CommunityThreadSummary` (`CommunityThread & { replyCount }`, der
 read), `CommunityThreadDetail` (`{ thread, replies }`), `CommunityActor` (`{ id, roles }`),
 `CreateThreadInput`, `CreateReplyInput`, `CommunityCursor = { createdAt, id }`,
 `ListThreadsOptions`, `ListThreadsResult`, and `CommunityRepository` (`listThreads`,
-`getThreadById`, `createThread`, `listRepliesByThreadId`, `createReply`). `replyCount` is
-derived, never stored — a correlated subquery in PostgreSQL, a scan over the replies map in
-memory.
+`listThreadsByAuthor`, `getThreadById`, `createThread`, `listRepliesByThreadId`, `createReply`).
+`listThreadsByAuthor` is the profile read (one author's threads, `createdAt` descending).
+`replyCount` is derived, never stored — a correlated subquery in PostgreSQL, a scan over the
+replies map in memory.
 
 ### 2.9 Search read model (search)
 
@@ -238,8 +246,10 @@ Related types: `LibraryActor` (`{ id, roles }`, resolved from identity at the co
 root), `SaveItemInput` (`{ itemId }`), `ListSavedItemsInput` (`{ limit? }`),
 `ListSavedItemsOptions` (`{ limit }`), `LibraryStore` (`{ saves: Map<string, SavedItem> }`,
 keyed `${userId}:${itemId}`), and `LibraryRepository` (`listSavedItems`, `isItemSaved`,
-`saveItem`, `removeSavedItem`). `saveItem` is an idempotent upsert on `(userId, itemId)`: it
-returns the save that is stored afterwards (the new one, or the pre-existing save). The module
+`saveItem`, `removeSavedItem`, `countSavedItems`). `saveItem` is an idempotent upsert on
+`(userId, itemId)`: it returns the save that is stored afterwards (the new one, or the
+pre-existing save); `countSavedItems` is the profile rollup (the exact number the member has
+saved). The module
 stores **no item content** — it imports content **types only** where it must name an item;
 hydration and the published-item check happen at the composition root (§8 of
 [library-slice.md](library-slice.md)).
@@ -255,7 +265,8 @@ and `scholar_verifications` (§3.5) by
 `scholar-verification-slice.md`), and `community_threads`/`community_replies` (§3.6–§3.7) by
 `migrations/20261128120000_create_community_tables.cjs` (see `community-slice.md`), and
 `saved_items` (§3.8) by `migrations/20261128130000_create_saved_items.cjs` (see
-`library-slice.md`).
+`library-slice.md`); the two member-author indexes that back the profile reads are added by
+`migrations/20261128140000_add_member_author_indexes.cjs` (see `member-profile-slice.md`).
 Timestamps are stored as ISO-8601
 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
 portability is preferred over database-side timezone arithmetic; `roles`, `tags`, `degrees`,
@@ -322,6 +333,9 @@ Index: `content_items_status_published_at_idx` on `(status, published_at)` to su
 list query. The list read is a keyset query — `WHERE status = 'published' ORDER BY
 published_at DESC, id DESC` — with the cursor encoded as `"<publishedAt>|<id>"`. The
 authoring view (`listItems`) reads every status ordered by `updated_at DESC, id DESC`.
+Index: `content_items_author_id_published_at_idx` on `(author_id, published_at)` to support the
+profile read (`WHERE author_id = $1 AND status = 'published' ORDER BY published_at DESC, id
+DESC LIMIT $2`).
 
 ### 3.5 `scholar_verifications`
 
@@ -364,6 +378,8 @@ on `(status, submitted_at)` to support the review queue. The queue reads
 Index: `community_threads_created_at_id_idx` on `(created_at, id)` to support the keyset list
 (`WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC`). The cursor is the same
 `"<createdAt>|<id>"` codec used by the content read path.
+Index: `community_threads_author_id_created_at_idx` on `(author_id, created_at)` to support the
+profile read (`WHERE author_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`).
 
 ### 3.7 `community_replies`
 
@@ -407,7 +423,9 @@ dependent order (`auth_password_resets`, then the index, then `auth_sessions`, t
 authorship migration's `down` drops `author_id` and `updated_by`; the verification migration's
 `down` drops both indexes, then `scholar_verifications`; the community migration's `down` drops
 both indexes, then `community_replies`, then `community_threads`; the library migration's
-`down` drops the index, then `saved_items`.
+`down` drops the index, then `saved_items`; the member-profile migration's `down` drops the two
+author indexes (`community_threads_author_id_created_at_idx` then
+`content_items_author_id_published_at_idx`) and touches no table.
 
 ## 4. In-Memory Store
 
@@ -433,7 +451,9 @@ Defined in `src/modules/content/infrastructure/content-store.ts`. `ContentStore`
 single `items: Map<string, ResearchItem>` keyed by `id`. `listPublishedItems` filters to
 `status === "published"`, sorts by `publishedAt`/`id` descending, applies the keyset cursor,
 and slices to the requested limit; `getPublishedItemById` returns `undefined` for drafts or
-unknown ids. The authoring methods mirror the read path: `listItems` returns every status
+unknown ids; `listPublishedItemsByAuthor` filters to one author's published items sorted by
+`publishedAt`/`id` descending and truncates to the limit. The authoring methods mirror the read
+path: `listItems` returns every status
 sorted by `updatedAt`/`id` descending, `getItemById` returns drafts too, and
 `updateItemIfUnchanged` writes only when the stored `updatedAt` matches the expected value
 (returning `false` otherwise, which the service turns into a `409`). Like the identity store
@@ -457,7 +477,9 @@ Defined in `src/modules/community/infrastructure/community-store.ts`. `Community
 `replies: Map<string, CommunityReply>`. `listThreads` sorts by `createdAt`/`id` descending,
 applies the keyset cursor, derives `replyCount` by scanning the replies map, and slices to the
 requested limit (returning a `nextCursor` while a further page remains). `listRepliesByThreadId`
-filters by `threadId` and sorts ascending. Like the other stores it is cached on `globalThis`
+filters by `threadId` and sorts ascending; `listThreadsByAuthor` filters to one author's threads
+sorted by `createdAt`/`id` descending and derives `replyCount` for each. Like the other stores
+it is cached on `globalThis`
 (`__okkhorCommunityStore`) and replaced between tests by `resetCommunityStoreForTesting()`.
 
 ### 4.5 Search read model (no store)
@@ -476,7 +498,8 @@ Defined in `src/modules/library/infrastructure/library-store.ts`. `LibraryStore`
 mirroring the composite primary key. `listSavedItems` filters to the member's saves, sorts by
 `savedAt` descending then `itemId` descending, and truncates to the requested limit;
 `isItemSaved` is a map lookup; `saveItem` is an idempotent upsert that returns the pre-existing
-save when the pair is already present. Like the other stores it is cached on `globalThis`
+save when the pair is already present; `countSavedItems` counts the member's saves (the profile
+rollup). Like the other stores it is cached on `globalThis`
 (`__okkhorLibraryStore` / `__okkhorMemoryLibraryRepository`) and replaced between tests by
 `resetLibraryStoreForTesting()`.
 
@@ -696,6 +719,7 @@ Automatic retention jobs are future work, not a current behaviour.
 - `src/modules/community/infrastructure/community-store.ts` — in-memory community store
 - `src/modules/community/infrastructure/postgres-community-repository.ts` — community SQL implementation
 - `migrations/20261128130000_create_saved_items.cjs` — `saved_items` schema of record
+- `migrations/20261128140000_add_member_author_indexes.cjs` — member-author indexes for the profile reads
 - `src/modules/library/domain/library-types.ts` — library domain types
 - `src/modules/library/infrastructure/library-store.ts` — in-memory library store
 - `src/modules/library/infrastructure/postgres-library-repository.ts` — library SQL implementation

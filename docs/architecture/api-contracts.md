@@ -502,6 +502,15 @@ Remove a saved item. Requires an authenticated session (any role).
 - **Success** `200`: `{ "removed": true | false }` — idempotent; `false` when nothing was saved.
 - **Errors:** `AUTH_UNAUTHORIZED` (401), `LIBRARY_UNKNOWN` (500).
 
+### 4.28 Member profile pages (no HTTP endpoint)
+
+The member-profile slice adds **no** HTTP endpoint. `/profile` and `/u/[id]` are
+server-rendered pages that read the existing public module surfaces in-process (identity
+`getPublicProfile`, content `listPublishedItemsByAuthor`, community `listThreadsByAuthor`,
+library `countSavedItems`) and never round-trip through the browser, so there is no new
+contract to version here. See [member-profile-slice.md](member-profile-slice.md) and §7 for
+how the pages are gated.
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -600,7 +609,7 @@ truth is `src/modules/library/domain/library-errors.ts`:
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
 
-- matchers: `/search/:path*`, `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`, `/library/:path*`
+- matchers: `/search/:path*`, `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`, `/library/:path*`, `/profile/:path*`
 - behaviour: verify `okkhor_access` at the edge; on missing/invalid token redirect to
   `/auth?next=<original-path>`.
 
@@ -634,6 +643,17 @@ The `/content` and `/content/[id]` pages are **not** gated: the read path is int
 public (see `content-comprehension-slice.md`). The item detail page renders the `SaveItemButton`
 island: an authenticated viewer gets the Save/Saved toggle, and an anonymous visitor gets a
 sign-in affordance that returns to the item (`/auth?next=/content/[id]`).
+
+`/profile` is covered by the `/profile/:path*` matcher at the edge; the layout additionally
+resolves the session and renders the page inside the protected workspace chrome, and the page
+re-checks the session and redirects to `/auth?next=/profile` without one
+(see [member-profile-slice.md](member-profile-slice.md)).
+
+`/u/[id]` is intentionally **not** gated: a member's public footprint (display name, role
+badge, member-since, and published items) is public, matching the public read path. The
+members-only community-threads section is rendered only for a signed-in viewer; an anonymous
+visitor gets a sign-in prompt (`/auth?next=/u/[id]`). An unknown id renders the route's
+`not-found`. See [member-profile-slice.md](member-profile-slice.md) §7.
 
 ## 8. Client Usage
 

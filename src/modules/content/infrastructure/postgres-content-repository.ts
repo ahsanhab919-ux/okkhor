@@ -114,6 +114,19 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
         return item ? [item] : [];
       });
     },
+    async listPublishedItemsByAuthor(authorId, { limit }) {
+      const result = await pool.query<PostgresContentItemRow>(
+        `
+          SELECT * FROM content_items
+          WHERE author_id = $1 AND status = 'published'
+          ORDER BY published_at DESC, id DESC
+          LIMIT $2
+        `,
+        [authorId, limit],
+      );
+
+      return result.rows.map(mapContentItemRow);
+    },
     async getItemById(id) {
       const result = await pool.query<PostgresContentItemRow>(
         "SELECT * FROM content_items WHERE id = $1 LIMIT 1",

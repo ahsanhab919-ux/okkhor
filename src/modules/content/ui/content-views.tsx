@@ -20,26 +20,44 @@ function ItemTags({ tags }: { tags: string[] }) {
   );
 }
 
-export function ContentItemList({ items }: { items: ResearchItem[] }) {
+export function ContentItemList({
+  items,
+  showStatus = false,
+  emptyMessage = "No published research items are available yet.",
+}: {
+  items: ResearchItem[];
+  /** Shows a Published/Draft pill and links a draft to the Studio instead of the public page. */
+  showStatus?: boolean;
+  emptyMessage?: string;
+}) {
   if (items.length === 0) {
-    return <p>No published research items are available yet.</p>;
+    return <p>{emptyMessage}</p>;
   }
 
   return (
     <div className="archive-grid">
-      {items.map((item) => (
-        <article key={item.id} className="archive-card">
-          <div className="archive-card__body">
-            <ItemTags tags={item.tags} />
-            <h3>{item.title}</h3>
-            <p lang="bn">{item.summaryBn}</p>
-            <Link className="inline-link" href={`/content/${item.id}`}>
-              Read the summary
-              <Icon className="icon-sm" name="arrow-right" />
-            </Link>
-          </div>
-        </article>
-      ))}
+      {items.map((item) => {
+        const isDraft = item.status === "draft";
+
+        return (
+          <article key={item.id} className="archive-card">
+            <div className="archive-card__body">
+              <ItemTags tags={item.tags} />
+              {showStatus ? (
+                <div>
+                  <span className="pill">{isDraft ? "Draft" : "Published"}</span>
+                </div>
+              ) : null}
+              <h3>{item.title}</h3>
+              <p lang="bn">{item.summaryBn}</p>
+              <Link className="inline-link" href={isDraft ? `/studio/${item.id}` : `/content/${item.id}`}>
+                {isDraft ? "Open in Studio" : "Read the summary"}
+                <Icon className="icon-sm" name="arrow-right" />
+              </Link>
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }

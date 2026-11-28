@@ -126,6 +126,21 @@ export async function getPublishedItemsByIds(ids: string[]): Promise<ResearchIte
   return getContentRepository().getPublishedItemsByIds(ids);
 }
 
+export type ListItemsByAuthorInput = {
+  limit?: number;
+};
+
+/**
+ * The author's published items, newest-published first, capped — the profile public read. Called
+ * by the composition root, which owns the identity join; the module never resolves a name.
+ */
+export async function listPublishedItemsByAuthor(
+  authorId: string,
+  input: ListItemsByAuthorInput = {},
+): Promise<ResearchItem[]> {
+  return getContentRepository().listPublishedItemsByAuthor(authorId, { limit: normalizeLimit(input.limit) });
+}
+
 /** The authoring list: every item regardless of status, newest-edited first. */
 export async function listContentItems(): Promise<ResearchItem[]> {
   return getContentRepository().listItems();
