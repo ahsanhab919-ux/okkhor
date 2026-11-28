@@ -420,6 +420,12 @@ Current dependency edges (verified in code):
   the resolved provider, model, and timeout — alongside the summary coverage counted from `content`'s
   `listContentItems`. It edits nothing and runs nothing (`ADR-001`), and is reached from the `/admin`
   hub.
+- The **content register slice** adds no module, no edge, and no persistence. It adds one read route
+  (`app/admin/content/page.tsx`) that composes `content`'s `listContentItems` and renders it as a
+  filterable table — title, source language, tags, status, and whether the item carries the Bangla
+  summary a publish requires. The Stitch "Bulk Upload & Ingestion" screen it aligns has no backing
+  here (no file storage, no upload endpoint, and no ingestion queue), so it uploads nothing and edits
+  nothing (`ADR-001`), and is reached from the `/admin` hub.
 
 Rules that follow:
 
