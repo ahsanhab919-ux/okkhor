@@ -1,6 +1,6 @@
 # Library Slice
 
-- Status: `Proposed` (Definition of Ready draft — decisions recorded in §13; not yet implemented)
+- Status: `Implemented` (seventh product slice — decisions recorded in §13)
 - Related ADRs: `ADR-001`, `ADR-002`, `ADR-004`, `ADR-009`
 - Owner: `Engineering Lead`
 - Handbook: `ENGINEERING_HANDBOOK.md` §7.2 (Definition of Ready), §7.3 (Definition of Done)
@@ -42,22 +42,22 @@ sessions.
 
 Acceptance criteria:
 
-- [ ] `/content/[id]` renders a Save/Saved toggle; for an anonymous visitor it offers to sign in
+- [x] `/content/[id]` renders a Save/Saved toggle; for an anonymous visitor it offers to sign in
       and returns to the item afterwards.
-- [ ] `POST /api/library/items` saves a published item for the acting member and is idempotent
+- [x] `POST /api/library/items` saves a published item for the acting member and is idempotent
       (saving an already-saved item succeeds without creating a duplicate).
-- [ ] `DELETE /api/library/items/[id]` removes a saved item; removing a non-saved item is a no-op
+- [x] `DELETE /api/library/items/[id]` removes a saved item; removing a non-saved item is a no-op
       that still succeeds.
-- [ ] `GET /api/library` returns the member's saved items, hydrated to research items, newest-saved
+- [x] `GET /api/library` returns the member's saved items, hydrated to research items, newest-saved
       first, capped at the page size.
-- [ ] `/library` renders the saved list, each entry linking to `/content/[id]`, with a Remove
+- [x] `/library` renders the saved list, each entry linking to `/content/[id]`, with a Remove
       action; an empty library shows an empty state.
-- [ ] Unauthenticated requests to any library endpoint return `401`; `/library` is gated at the edge
+- [x] Unauthenticated requests to any library endpoint return `401`; `/library` is gated at the edge
       and redirects to `/auth?next=/library`.
-- [ ] Saving a non-existent or non-published item returns `404` `LIBRARY_ITEM_NOT_FOUND`.
-- [ ] A saved item that is later unpublished or deleted silently drops out of the library list (§13).
-- [ ] A "My Library" entry is added to the public navigation.
-- [ ] Unit tests cover the save schema and the service; integration tests cover the three routes and
+- [x] Saving a non-existent or non-published item returns `404` `LIBRARY_ITEM_NOT_FOUND`.
+- [x] A saved item that is later unpublished or deleted silently drops out of the library list (§13).
+- [x] A "My Library" entry is added to the public navigation.
+- [x] Unit tests cover the save schema and the service; integration tests cover the three routes and
       the two pages.
 
 ## 4. Scope

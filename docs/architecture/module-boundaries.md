@@ -217,12 +217,35 @@ only in the composition root (`app/api/content/items/**`), where a small helper
 (`summarize-on-publish.ts`) owns the generate → inject → write ordering. See
 [ai-summarization-slice.md](ai-summarization-slice.md).
 
+### 5.9 `library` — implemented, fully layered
+
+```
+src/modules/library/
+  domain/         library-types.ts, library-errors.ts,
+                  library-schemas.ts          (save schema)
+  application/    library-service.ts          (save/list/remove/isSaved use cases)
+  infrastructure/ library-repository.ts       (driver selector)
+                  library-store.ts             (in-memory repository)
+                  postgres-library-repository.ts
+  api/            library-http.ts             (response + error shaping)
+  ui/             save-item-button.tsx         (Save/Saved toggle + Remove island)
+                  library-list.tsx             (server presentational list)
+```
+
+`library` owns per-member saved research items ("My Library"): it writes only to its one
+`saved_items` table and stores no item content. It depends on `platform` for the shared Postgres
+pool config and imports identity **types only** (`UserRole`) and content **types only**
+(`ResearchItem`) where it must name them; the acting member, the saved-list hydration, and the
+published-target check are all composition-root concerns resolved in `app/**` (via content's
+`getPublishedItemsByIds` public surface). It does not import `content`, `search`, or
+`verification` behaviour.
+
 ## 6. Cross-Module Rules
 
 Current dependency edges (verified in code):
 
 - `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, `content`,
-  `verification`, `community`, `search`, and `summarization`.
+  `verification`, `community`, `search`, `summarization`, and `library`.
 - `identity` depends on `platform` for the ephemeral store (`auth-rate-limit.ts` imports
   `getEphemeralStore`).
 - `content` depends on `platform` for the shared Postgres pool config
@@ -240,6 +263,13 @@ Current dependency edges (verified in code):
   (`getMemoryContentRepository`, `getMemoryCommunityRepository`) to build the read model. This
   read-only composition edge is accepted in [discovery-slice.md](discovery-slice.md) because
   `search` never writes and never exposes member-only data beyond its gated surface.
+- `library` depends on `platform` for the shared Postgres pool config
+  (`postgres-library-repository.ts` imports `getPostgresPoolConfig`).
+- `library` imports identity **types only** (`UserRole`) and content **types only**
+  (`ResearchItem`) where it must name them. The acting member is resolved in the composition
+  root (`app/api/library/library-actor.ts`), and the saved-list hydration and published-target
+  check go through content's `getPublishedItemsByIds` public surface in `app/**`; the module
+  itself never reads `content_items`.
 
 Rules that follow:
 
