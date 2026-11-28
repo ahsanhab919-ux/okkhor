@@ -2331,3 +2331,119 @@ code {
     flex-direction: column;
   }
 }
+
+/* New-thread composer — the Stitch "Create Discussion Thread" card: a titled well, a suggested
+   category chip row, and a plain-text body. */
+.composer-page {
+  display: grid;
+  gap: 28px;
+}
+
+.composer {
+  display: grid;
+  gap: 26px;
+  padding: 40px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-container);
+  box-shadow: 0 40px 100px -30px rgba(59, 130, 246, 0.25);
+}
+
+.composer__field {
+  display: grid;
+  gap: 10px;
+}
+
+.composer__label {
+  color: var(--color-primary);
+  font-family: var(--font-headline);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.composer__input {
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+}
+
+.composer__input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(173, 198, 255, 0.18);
+}
+
+.composer__input::placeholder {
+  color: var(--color-outline);
+}
+
+.composer__input--title {
+  font-family: var(--font-headline);
+  font-size: 1.15rem;
+}
+
+.composer__input--body {
+  resize: vertical;
+  line-height: 1.7;
+}
+
+.composer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.composer__chip {
+  padding: 8px 16px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-on-surface-variant);
+  font-size: 0.85rem;
+}
+
+.composer__chip:hover {
+  background: var(--color-surface-container-high);
+}
+
+.composer__chip--active {
+  border-color: var(--color-primary);
+  background: rgba(173, 198, 255, 0.12);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.composer__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
+}
+
+.composer__cancel {
+  color: var(--color-on-surface-variant);
+}
+
+.composer__cancel:hover {
+  color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+  .composer {
+    padding: 24px;
+  }
+
+  .composer__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .composer__submit {
+    justify-content: center;
+  }
+}
