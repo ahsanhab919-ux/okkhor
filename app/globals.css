@@ -3593,3 +3593,70 @@ a.tab-row__tab--active {
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* The member roster — the Stitch "User Management" idiom: a dense table over the identity record,
+   each row counted from the account itself. The wrapper scrolls horizontally so the table stays
+   readable on the narrow, low-end screens the product targets. */
+.roster-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-container);
+}
+
+.roster-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.roster-table th {
+  padding: 12px 20px;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-outline);
+  background: var(--color-surface-container-high);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.roster-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-line);
+  color: var(--color-on-surface);
+  vertical-align: middle;
+}
+
+.roster-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.roster-table tbody tr:hover {
+  background: var(--color-surface-container-high);
+}
+
+.roster-table th.roster-table__actions,
+.roster-table td.roster-table__actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.roster-table__name {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.roster-table__muted {
+  color: var(--color-on-surface-variant);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.roster-table__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

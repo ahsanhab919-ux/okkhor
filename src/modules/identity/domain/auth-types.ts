@@ -40,6 +40,20 @@ export type PublicProfile = {
   createdAt: string;
 };
 
+/**
+ * The administrator-facing roster entry: what an administrator needs to see who is on the platform
+ * and nothing more. It deliberately excludes `phoneNumber`, `email`, and every password field so
+ * the roster route cannot leak a member's contact points or credentials
+ * (`module-boundaries.md` §7).
+ */
+export type MemberRosterEntry = {
+  id: string;
+  displayName: string;
+  roles: UserRole[];
+  createdAt: string;
+  lastLoginAt?: string;
+};
+
 export type AuthSessionRecord = {
   id: string;
   userId: string;
@@ -96,6 +110,8 @@ export type AuthRepository = {
   getUserByPhone(phoneNumber: string): Promise<UserRecord | undefined>;
   /** Display labels for the given ids; unknown ids are omitted. */
   listProfilesByIds(ids: string[]): Promise<UserProfileLabel[]>;
+  /** Every member, newest first. The administrator roster reads this; it never returns credentials. */
+  listUsers(): Promise<UserRecord[]>;
   createUser(user: UserRecord): Promise<void>;
   updateUser(user: UserRecord): Promise<void>;
   getSessionById(id: string): Promise<AuthSessionRecord | undefined>;

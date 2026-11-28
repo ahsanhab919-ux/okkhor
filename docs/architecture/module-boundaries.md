@@ -401,6 +401,12 @@ Current dependency edges (verified in code):
   and imports nothing new. The inbox's mark-read islands (`notifications` `ui`) and the shared shell
   are decoupled by a `okkhor:inbox-changed` window event rather than an import in either direction.
   No module imports another module's UI ([unread-badge-slice.md](unread-badge-slice.md) §8).
+- The **admin member roster slice** adds no module and no edge. It adds one read-only repository
+  method (`AuthRepository.listUsers`) and one use case (`listMembers`) inside `identity`, plus the
+  `MemberRosterEntry` projection type — which carries no phone number, email, or password field — and
+  composes them in one route (`app/admin/users/page.tsx`). `listMembers` re-checks the `admin` role
+  itself, exactly like `grantUserRole`, so the roster never depends on the caller's gate. The page is
+  reached from the `/admin` console hub, which is how the admin family is discovered.
 
 Rules that follow:
 
