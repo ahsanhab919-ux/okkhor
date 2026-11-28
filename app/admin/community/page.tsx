@@ -18,18 +18,28 @@ export default async function AdminCommunityPage() {
 
   return (
     <section className="content-band">
-      <div className="section-heading">
+      <header className="page-hero">
         <div>
           <p className="eyebrow eyebrow--blue">Moderation</p>
-          <h1>Community Queue</h1>
+          <h1 className="page-hero__title">Community Queue</h1>
+          <p className="page-hero__lead">
+            Every thread in the archive — hidden and locked ones included. Open a thread to hide, lock, or
+            review its replies.
+          </p>
         </div>
-        <Link className="inline-link" href="/admin/community/reports">
-          Reports
-        </Link>
-        <Link className="inline-link" href="/community">
-          Back to the community
-        </Link>
-      </div>
+        <div className="page-hero__actions">
+          <Link className="inline-link" href="/admin/community/reports">
+            Reports
+          </Link>
+          <Link className="inline-link" href="/community">
+            Back to the community
+          </Link>
+          <span className="page-hero__count">
+            <strong>{threads.length}</strong>
+            <span>Threads</span>
+          </span>
+        </div>
+      </header>
 
       <ThreadList
         emptyMessage="No threads to moderate yet."

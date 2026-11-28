@@ -33,51 +33,62 @@ export default async function AdminCommunityThreadPage({ params }: AdminCommunit
 
   return (
     <section className="content-band">
-      <div className="section-heading">
+      <header className="page-hero">
         <div>
-          <span className="pill">{thread.category}</span>
-          {thread.moderationState === "hidden" ? <span className="pill">Hidden</span> : null}
-          {thread.locked ? <span className="pill">Locked</span> : null}
-          <h1>{thread.title}</h1>
-          <p>Started {thread.createdAt.slice(0, 10)}</p>
+          <div className="page-hero__tags">
+            <span className="pill">{thread.category}</span>
+            {thread.moderationState === "hidden" ? <span className="pill">Hidden</span> : null}
+            {thread.locked ? <span className="pill">Locked</span> : null}
+          </div>
+          <h1 className="page-hero__title">{thread.title}</h1>
+          <p className="page-hero__lead">Started {thread.createdAt.slice(0, 10)}</p>
         </div>
-        <Link className="inline-link" href="/admin/community">
-          Back to the queue
-        </Link>
+        <div className="page-hero__actions">
+          <Link className="inline-link" href="/admin/community">
+            Back to the queue
+          </Link>
+        </div>
+      </header>
+
+      <div className="console-stack">
+        <article className="mini-panel">
+          <p className="eyebrow">Thread</p>
+          <p>{thread.body}</p>
+        </article>
+
+        <ModerationControls
+          id={thread.id}
+          locked={thread.locked}
+          moderationState={thread.moderationState}
+          target="thread"
+        />
+
+        <section className="form-panel">
+          <div className="form-panel__header">
+            <div>
+              <h2>Replies</h2>
+            </div>
+          </div>
+          {replies.length === 0 ? (
+            <p>No replies yet.</p>
+          ) : (
+            <ul className="activity-list">
+              {replies.map((reply) => (
+                <li key={reply.id} className="activity-entry">
+                  <p>{reply.body}</p>
+                  <span>{reply.createdAt.slice(0, 10)}</span>
+                  {reply.moderationState === "hidden" ? <span className="pill">Hidden</span> : null}
+                  <ModerationControls
+                    id={reply.id}
+                    moderationState={reply.moderationState}
+                    target="reply"
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
-
-      <article>
-        <p>{thread.body}</p>
-      </article>
-
-      <ModerationControls
-        id={thread.id}
-        locked={thread.locked}
-        moderationState={thread.moderationState}
-        target="thread"
-      />
-
-      <section className="content-band">
-        <h2>Replies</h2>
-        {replies.length === 0 ? (
-          <p>No replies yet.</p>
-        ) : (
-          <ul className="activity-list">
-            {replies.map((reply) => (
-              <li key={reply.id} className="activity-entry">
-                <p>{reply.body}</p>
-                <span>{reply.createdAt.slice(0, 10)}</span>
-                {reply.moderationState === "hidden" ? <span className="pill">Hidden</span> : null}
-                <ModerationControls
-                  id={reply.id}
-                  moderationState={reply.moderationState}
-                  target="reply"
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </section>
   );
 }
