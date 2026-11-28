@@ -1,11 +1,14 @@
 import { NextRequest } from "next/server";
 
 import { contentErrorResponse, contentJson } from "@/src/modules/content/api/content-http";
-import { createContentItem, listPublishedItems } from "@/src/modules/content/application/content-service";
+import { listPublishedItems } from "@/src/modules/content/application/content-service";
 import { authErrorResponse } from "@/src/modules/identity/api/auth-http";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
+import { summarizationErrorResponse } from "@/src/modules/summarization/api/summarization-http";
+import { SummarizationError } from "@/src/modules/summarization/domain/summarization-errors";
 
 import { resolveContentActor } from "./content-actor";
+import { createItemWithSummary } from "./summarize-on-publish";
 
 export const runtime = "nodejs";
 
@@ -26,12 +29,16 @@ export async function POST(request: NextRequest) {
   try {
     const actor = await resolveContentActor(request);
     const body = await request.json();
-    const item = await createContentItem(actor, body);
+    const { item, summary } = await createItemWithSummary(actor, body);
 
-    return contentJson({ item }, { status: 201 });
+    return contentJson(summary ? { item, summary } : { item }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
       return authErrorResponse(error);
+    }
+
+    if (error instanceof SummarizationError) {
+      return summarizationErrorResponse(error);
     }
 
     return contentErrorResponse(error);

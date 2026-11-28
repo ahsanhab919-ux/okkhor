@@ -36,6 +36,21 @@ function assertCanAuthor(actor: ContentAuthor) {
   }
 }
 
+/**
+ * The publish invariant: a published item must carry a non-empty Bangla summary. The composition
+ * root fills a blank summary from the AI summarization module before this runs, so in the normal
+ * flow it is always satisfied; this only guards direct or corrupt callers.
+ */
+function assertPublishableSummary(status: string, summaryBn: string) {
+  if (status === "published" && !summaryBn) {
+    throw new ContentError(
+      "A published item must have a Bangla summary.",
+      "CONTENT_VALIDATION_FAILED",
+      400,
+    );
+  }
+}
+
 function normalizeLimit(limit?: number) {
   if (!limit || !Number.isFinite(limit) || limit <= 0) {
     return DEFAULT_CONTENT_PAGE_SIZE;
@@ -118,6 +133,7 @@ export async function createContentItem(actor: ContentAuthor, input: CreateItemI
   assertCanAuthor(actor);
 
   const parsed = parseContentSchema(createItemSchema, input);
+  assertPublishableSummary(parsed.status, parsed.summaryBn);
   const now = new Date().toISOString();
   const item: ResearchItem = {
     id: randomUUID(),
@@ -178,6 +194,8 @@ export async function updateContentItem(
     updatedBy: actor.id,
     updatedAt: now,
   };
+
+  assertPublishableSummary(updated.status, updated.summaryBn);
 
   const written = await repository.updateItemIfUnchanged(updated, existing.updatedAt);
 
