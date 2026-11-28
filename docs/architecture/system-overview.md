@@ -37,6 +37,8 @@ At the current stage the deployed product is intentionally narrow:
   scholars and the applications still awaiting a decision, each counted from its own credentials
 - an administrator analytics canvas (`/admin/analytics`) charting the real distributions — research
   by topic, visible threads by category, and applications by status
+- an administrator member roster (`/admin/users`) over the identity record — every member, the roles
+  they hold, and when they last signed in, projected without contact points or credentials
 - browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
   and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe

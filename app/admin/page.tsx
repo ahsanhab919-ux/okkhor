@@ -114,6 +114,9 @@ export default async function AdminOverviewPage() {
             <Link className="inline-link" href="/admin/scholars">
               Scholars
             </Link>
+            <Link className="inline-link" href="/admin/users">
+              Users
+            </Link>
             <span className="page-hero__count">
               <strong>{awaitingReview}</strong>
               <span>To review</span>

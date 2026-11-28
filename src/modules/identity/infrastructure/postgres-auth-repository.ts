@@ -116,6 +116,11 @@ function createPostgresAuthRepository(pool: Pool): AuthRepository {
 
       return result.rows.map((row) => ({ id: row.id, displayName: row.display_name }));
     },
+    async listUsers() {
+      const result = await pool.query<PostgresUserRow>("SELECT * FROM auth_users ORDER BY created_at DESC");
+
+      return result.rows.map(mapUserRow);
+    },
     async createUser(user) {
       await pool.query(
         `

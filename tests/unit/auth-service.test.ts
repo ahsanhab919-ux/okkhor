@@ -3,6 +3,7 @@ import { vi } from "vitest";
 
 import {
   confirmPasswordReset,
+  listMembers,
   loginUser,
   refreshUserSession,
   registerUser,
@@ -10,7 +11,12 @@ import {
   setEmail,
 } from "@/src/modules/identity/application/auth-service";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
-import { getAuthStore, resetAuthStoreForTesting } from "@/src/modules/identity/infrastructure/auth-store";
+import type { UserRole } from "@/src/modules/identity/domain/auth-types";
+import {
+  getAuthStore,
+  getMemoryAuthRepository,
+  resetAuthStoreForTesting,
+} from "@/src/modules/identity/infrastructure/auth-store";
 import {
   getLastNotificationMessageForTesting,
   resetLogNotificationChannelForTesting,
@@ -223,5 +229,57 @@ describe("auth service", () => {
       code: "AUTH_VALIDATION_FAILED",
       status: 400,
     });
+  });
+});
+
+async function seedMember(
+  id: string,
+  displayName: string,
+  createdAt: string,
+  roles: UserRole[] = ["learner"],
+  lastLoginAt?: string,
+) {
+  await getMemoryAuthRepository().createUser({
+    id,
+    phoneNumber: `+8801${id}`,
+    displayName,
+    locale: "bn-BD",
+    roles,
+    createdAt,
+    updatedAt: createdAt,
+    passwordUpdatedAt: createdAt,
+    passwordHash: "seeded-hash",
+    lastLoginAt,
+  });
+}
+
+describe("listMembers", () => {
+  beforeEach(() => {
+    resetAuthStoreForTesting();
+  });
+
+  it("refuses a non-administrator", async () => {
+    await expect(listMembers({ id: "u-1", roles: ["scholar"] })).rejects.toMatchObject({
+      code: "AUTH_FORBIDDEN",
+      status: 403,
+    });
+  });
+
+  it("returns every member newest first, projected without contact points", async () => {
+    await seedMember("m-old", "Earlier Member", "2026-01-05T00:00:00.000Z", ["learner"]);
+    await seedMember("m-new", "Later Member", "2026-02-10T00:00:00.000Z", ["scholar"], "2026-03-01T00:00:00.000Z");
+
+    const roster = await listMembers({ id: "u-admin", roles: ["admin"] });
+
+    expect(roster.map((entry) => entry.displayName)).toEqual(["Later Member", "Earlier Member"]);
+
+    const [newest] = roster;
+    expect(newest.roles).toEqual(["scholar"]);
+    expect(newest.createdAt).toBe("2026-02-10T00:00:00.000Z");
+    expect(newest.lastLoginAt).toBe("2026-03-01T00:00:00.000Z");
+    // The projection carries no phone number, email, or password metadata.
+    expect(Object.keys(newest).sort()).toEqual(["createdAt", "displayName", "id", "lastLoginAt", "roles"]);
+    expect((newest as Record<string, unknown>).phoneNumber).toBeUndefined();
+    expect((newest as Record<string, unknown>).email).toBeUndefined();
   });
 });
