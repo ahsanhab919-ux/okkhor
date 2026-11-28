@@ -8,11 +8,11 @@ export const dynamic = "force-dynamic";
 export default function StudioNewItemPage() {
   return (
     <section className="content-band">
-      <header className="studio-hero">
+      <header className="page-hero">
         <div>
           <p className="eyebrow eyebrow--blue">Authoring</p>
-          <h1 className="studio-hero__title">New research item</h1>
-          <p className="studio-hero__lead">
+          <h1 className="page-hero__title">New research item</h1>
+          <p className="page-hero__lead">
             Give the item a title and an abstract, then publish it to the archive. The Bangla summary is
             generated on publish if you leave it blank.
           </p>

@@ -13,12 +13,22 @@ export default async function AdminVerificationsPage() {
 
   return (
     <section className="content-band">
-      <div className="section-heading">
+      <header className="page-hero">
         <div>
           <p className="eyebrow eyebrow--blue">Review</p>
-          <h1>Scholar Queue</h1>
+          <h1 className="page-hero__title">Scholar Queue</h1>
+          <p className="page-hero__lead">
+            Submitted verification applications awaiting a decision. Open one to review the credentials and
+            approve or reject it.
+          </p>
         </div>
-      </div>
+        <div className="page-hero__actions">
+          <span className="page-hero__count">
+            <strong>{applications.length}</strong>
+            <span>Awaiting review</span>
+          </span>
+        </div>
+      </header>
 
       {applications.length === 0 ? (
         <p>No applications are awaiting review.</p>

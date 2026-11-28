@@ -33,15 +33,25 @@ export default async function AdminCommunityReportsPage() {
 
   return (
     <section className="content-band">
-      <div className="section-heading">
+      <header className="page-hero">
         <div>
           <p className="eyebrow eyebrow--blue">Moderation</p>
-          <h1>Report Queue</h1>
+          <h1 className="page-hero__title">Report Queue</h1>
+          <p className="page-hero__lead">
+            Open member reports, newest first, each with the reported content and the inline moderation
+            controls.
+          </p>
         </div>
-        <Link className="inline-link" href="/admin/community">
-          Back to the queue
-        </Link>
-      </div>
+        <div className="page-hero__actions">
+          <Link className="inline-link" href="/admin/community">
+            Back to the queue
+          </Link>
+          <span className="page-hero__count">
+            <strong>{entries.length}</strong>
+            <span>Open</span>
+          </span>
+        </div>
+      </header>
 
       {entries.length === 0 ? (
         <p>No open reports.</p>
