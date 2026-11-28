@@ -130,6 +130,8 @@ describe("member profile pages", () => {
       category: "General",
       createdAt: "2026-03-01T00:00:00.000Z",
       updatedAt: "2026-03-01T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
     });
     await saveItem({ id: memberId, roles: ["learner"] }, { itemId: "published" });
 
@@ -173,6 +175,8 @@ describe("member profile pages", () => {
       category: "General",
       createdAt: "2026-03-01T00:00:00.000Z",
       updatedAt: "2026-03-01T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
     });
 
     render(await MemberProfilePage({ params: Promise.resolve({ id: user.id }) }));
@@ -197,6 +201,8 @@ describe("member profile pages", () => {
       category: "General",
       createdAt: "2026-03-01T00:00:00.000Z",
       updatedAt: "2026-03-01T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
     });
 
     render(await MemberProfilePage({ params: Promise.resolve({ id: viewerId }) }));

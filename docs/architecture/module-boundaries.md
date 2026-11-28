@@ -158,8 +158,9 @@ calling identity's `grantUserRole` public surface.
 ```
 src/modules/community/
   domain/         community-types.ts, community-errors.ts,
-                  community-schemas.ts, community-pagination.ts
-  application/    community-service.ts      (list/create/read/reply use cases, cursor codec)
+                  community-schemas.ts, community-pagination.ts,
+                  community-authorization.ts  (canModerate — admin-only moderator gate)
+  application/    community-service.ts      (list/create/read/reply + moderation use cases, cursor codec)
   infrastructure/ community-repository.ts   (driver selector)
                   community-store.ts         (in-memory repository)
                   postgres-community-repository.ts
@@ -167,12 +168,21 @@ src/modules/community/
   ui/             thread-form.tsx           (create island)
                   reply-form.tsx             (reply island)
                   thread-list.tsx            (shared server-safe discussion list)
+                  moderation-controls.tsx    (admin hide/restore + lock/unlock island)
 ```
 
 `community` owns member-authored discussion: threads and their flat, chronological replies. It
 depends on `platform` for the shared Postgres pool config and imports identity **types only**
 (`UserRole`); the acting member is resolved in the composition root (`app/**`) and passed in as
 `{ id, roles }`. It does not import `content` or `verification`.
+
+The **community-moderation slice** extends the same module with no new module, entity, or
+infrastructure: `community-authorization.ts` mirrors verification's `verification-authorization.ts`
+(the admin-only `canModerate`, the precedent for `canReview`), the moderation state lives on the
+existing `CommunityThread`/`CommunityReply` types, and `moderation-controls.tsx` is a second `ui`
+island alongside the create/reply forms. The moderator surfaces are composed in `app/admin/community/**`
+and the actor is resolved by `app/community-session.ts` — the same composition-root pattern as the
+rest of `community`.
 
 ### 5.7 `search` — implemented, fully layered
 
@@ -279,6 +289,11 @@ Current dependency edges (verified in code):
   joined there. The identity join (display name, roles, member-since) happens in `app/**`, so
   no module ever resolves a member's name, and the profile pages read the same
   modules-import-types-only rule as the rest of the app.
+- The **community-moderation slice** adds no new module and no new cross-module edge. It is
+  entirely internal to `community` (a new domain authorization helper, new use cases, new
+  repository methods, and one `ui` island); the moderator routes and pages are composed in
+  `app/admin/community/**`, and the acting administrator is resolved by the shared
+  `app/community-session.ts` composition-root helper.
 
 Rules that follow:
 

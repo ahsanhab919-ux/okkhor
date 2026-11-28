@@ -156,6 +156,11 @@ The member-authored discussion thread and its replies. Defined in
 | `category` | `string` | Free-text label (trimmed, 2–60), default `General` |
 | `createdAt` | `string` (ISO) | List sort key |
 | `updatedAt` | `string` (ISO) | |
+| `moderationState` | `"visible" \| "hidden"` | Soft, reversible moderator state; member reads omit `hidden` |
+| `locked` | `boolean` | Public: a locked thread is readable but accepts no replies |
+| `moderatedBy?` | `string` | Moderator audit trail — stripped from member reads |
+| `moderatedAt?` | `string` (ISO) | Moderator audit trail — stripped from member reads |
+| `moderationNote?` | `string` | Optional moderator note — stripped from member reads |
 
 `CommunityReply`:
 
@@ -166,15 +171,28 @@ The member-authored discussion thread and its replies. Defined in
 | `authorId` | `string` | The replying member, stamped from the session |
 | `body` | `string` | 1–10000 chars |
 | `createdAt` | `string` (ISO) | Reply sort key (ascending) |
+| `moderationState` | `"visible" \| "hidden"` | Soft, reversible moderator state; member reads omit `hidden` |
+| `moderatedBy?` | `string` | Moderator audit trail — stripped from member reads |
+| `moderatedAt?` | `string` (ISO) | Moderator audit trail — stripped from member reads |
+| `moderationNote?` | `string` | Optional moderator note — stripped from member reads |
 
-Related types: `CommunityThreadSummary` (`CommunityThread & { replyCount }`, derived on the list
-read), `CommunityThreadDetail` (`{ thread, replies }`), `CommunityActor` (`{ id, roles }`),
-`CreateThreadInput`, `CreateReplyInput`, `CommunityCursor = { createdAt, id }`,
-`ListThreadsOptions`, `ListThreadsResult`, and `CommunityRepository` (`listThreads`,
-`listThreadsByAuthor`, `getThreadById`, `createThread`, `listRepliesByThreadId`, `createReply`).
-`listThreadsByAuthor` is the profile read (one author's threads, `createdAt` descending).
+Related types: `ModerationState = "visible" | "hidden"`, `ModerationAction = "hide" | "restore" |
+"lock" | "unlock"`, `ModerateThreadInput`, `ModerateReplyInput`, `CommunityThreadSummary`
+(`CommunityThread & { replyCount }`, derived on the list read), `CommunityThreadDetail`
+(`{ thread, replies }`), `CommunityActor` (`{ id, roles }`), `CreateThreadInput`,
+`CreateReplyInput`, `CommunityCursor = { createdAt, id }`, `ListThreadsOptions`,
+`ListRepliesOptions`, `ListThreadsResult`, and `CommunityRepository` (`listThreads`,
+`listThreadsByAuthor`, `getThreadById`, `createThread`, `listRepliesByThreadId`, `createReply`,
+`getReplyById`, `updateThreadModeration`, `updateReplyModeration`).
+`listThreadsByAuthor` is the profile read (one author's threads, `createdAt` descending) and is
+always visible-only.
 `replyCount` is derived, never stored — a correlated subquery in PostgreSQL, a scan over the
 replies map in memory.
+**Moderation visibility is a repository rule** (`community-moderation-slice.md` §5):
+`listThreads`/`listRepliesByThreadId` take an `includeHidden?` flag that only the moderator
+surfaces pass, so the member list, the thread detail, the profile list, and the derived
+`replyCount` all omit hidden rows from one place. `getThreadById` returns a row in **any** state;
+the service decides whether the caller may see it.
 
 ### 2.9 Search read model (search)
 
@@ -266,7 +284,9 @@ and `scholar_verifications` (§3.5) by
 `migrations/20261128120000_create_community_tables.cjs` (see `community-slice.md`), and
 `saved_items` (§3.8) by `migrations/20261128130000_create_saved_items.cjs` (see
 `library-slice.md`); the two member-author indexes that back the profile reads are added by
-`migrations/20261128140000_add_member_author_indexes.cjs` (see `member-profile-slice.md`).
+`migrations/20261128140000_add_member_author_indexes.cjs` (see `member-profile-slice.md`); and
+the community moderation columns (§3.6–§3.7) by
+`migrations/20261128160000_add_community_moderation.cjs` (see `community-moderation-slice.md`).
 Timestamps are stored as ISO-8601
 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
 portability is preferred over database-side timezone arithmetic; `roles`, `tags`, `degrees`,
@@ -374,12 +394,21 @@ on `(status, submitted_at)` to support the review queue. The queue reads
 | `category` | `text` | not null, default `General` |
 | `created_at` | `text` | not null |
 | `updated_at` | `text` | not null |
+| `moderation_state` | `text` | not null, default `visible` (`visible` \| `hidden`) |
+| `locked` | `boolean` | not null, default `false` |
+| `moderated_by` | `text` | nullable — moderator id, no cross-module FK |
+| `moderated_at` | `text` | nullable |
+| `moderation_note` | `text` | nullable |
 
 Index: `community_threads_created_at_id_idx` on `(created_at, id)` to support the keyset list
 (`WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC`). The cursor is the same
 `"<createdAt>|<id>"` codec used by the content read path.
 Index: `community_threads_author_id_created_at_idx` on `(author_id, created_at)` to support the
 profile read (`WHERE author_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`).
+The member list adds `AND moderation_state = 'visible'`; the moderator queue omits it. The
+columns are added by `migrations/20261128160000_add_community_moderation.cjs`, all additive and
+defaulted, so existing rows backfill to `visible`/`false` with no rewrite
+(`community-moderation-slice.md` §9).
 
 ### 3.7 `community_replies`
 
@@ -390,9 +419,14 @@ profile read (`WHERE author_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2`)
 | `author_id` | `text` | not null |
 | `body` | `text` | not null |
 | `created_at` | `text` | not null |
+| `moderation_state` | `text` | not null, default `visible` (`visible` \| `hidden`) |
+| `moderated_by` | `text` | nullable |
+| `moderated_at` | `text` | nullable |
+| `moderation_note` | `text` | nullable |
 
 Index: `community_replies_thread_id_created_at_idx` on `(thread_id, created_at)` to support the
-per-thread reply read (`WHERE thread_id = $1 ORDER BY created_at ASC, id ASC`). There is no
+per-thread reply read (`WHERE thread_id = $1 ORDER BY created_at ASC, id ASC`). The member read
+adds `AND moderation_state = 'visible'`; the moderator read omits it. There is no
 `thread_id`/`author_id` foreign key (matching the authorship and `applicant_id` columns —
 modules stay decoupled).
 
@@ -425,7 +459,8 @@ authorship migration's `down` drops `author_id` and `updated_by`; the verificati
 both indexes, then `community_replies`, then `community_threads`; the library migration's
 `down` drops the index, then `saved_items`; the member-profile migration's `down` drops the two
 author indexes (`community_threads_author_id_created_at_idx` then
-`content_items_author_id_published_at_idx`) and touches no table.
+`content_items_author_id_published_at_idx`) and touches no table; the community-moderation
+migration's `down` drops the reply moderation columns before the thread moderation columns.
 
 ## 4. In-Memory Store
 
@@ -474,11 +509,14 @@ turns into a `409`). Like the other stores it is cached on `globalThis`
 
 Defined in `src/modules/community/infrastructure/community-store.ts`. `CommunityStore` holds two
 `Map`s keyed by `id`: `threads: Map<string, CommunityThread>` and
-`replies: Map<string, CommunityReply>`. `listThreads` sorts by `createdAt`/`id` descending,
-applies the keyset cursor, derives `replyCount` by scanning the replies map, and slices to the
-requested limit (returning a `nextCursor` while a further page remains). `listRepliesByThreadId`
-filters by `threadId` and sorts ascending; `listThreadsByAuthor` filters to one author's threads
-sorted by `createdAt`/`id` descending and derives `replyCount` for each. Like the other stores
+`replies: Map<string, CommunityReply>`. `listThreads` filters to visible threads unless
+`includeHidden`, sorts by `createdAt`/`id` descending, applies the keyset cursor, derives
+`replyCount` by scanning the replies map, and slices to the requested limit (returning a
+`nextCursor` while a further page remains). `listRepliesByThreadId` filters by `threadId` and
+sorts ascending, omitting hidden replies unless `includeHidden`; `listThreadsByAuthor` filters
+to one author's **visible** threads sorted by `createdAt`/`id` descending and derives
+`replyCount` for each. `getReplyById` returns a reply in any state; `updateThreadModeration` and
+`updateReplyModeration` overwrite the stored row's moderation columns. Like the other stores
 it is cached on `globalThis`
 (`__okkhorCommunityStore`) and replaced between tests by `resetCommunityStoreForTesting()`.
 
@@ -602,7 +640,11 @@ COMMUNITY_STORAGE_DRIVER = auto | memory | postgres   (default: auto)
 Both implementations satisfy the `CommunityRepository` interface. Application code calls
 `getCommunityRepository()`; the driver is independent of the other modules' drivers. The
 postgres list read is a keyset query with a correlated subquery for `replyCount`, and writes use
-`INSERT … ON CONFLICT (id) DO UPDATE`.
+`INSERT … ON CONFLICT (id) DO UPDATE`. Moderation follows `community-moderation-slice.md` §9:
+the member list/reply reads add `moderation_state = 'visible'` (the moderator reads omit it), the
+`replyCount` subquery filters visible replies, and `updateThreadModeration`/`updateReplyModeration`
+issue `UPDATE … SET moderation_state = $1, locked = $2, moderated_by = $3, moderated_at = $4,
+moderation_note = $5 WHERE id = $6` (the reply form without `locked`).
 
 ### 5.7 Search repository
 
@@ -715,6 +757,7 @@ Automatic retention jobs are future work, not a current behaviour.
 - `src/modules/verification/infrastructure/verification-store.ts` — in-memory verification store
 - `src/modules/verification/infrastructure/postgres-verification-repository.ts` — verification SQL implementation
 - `migrations/20261128120000_create_community_tables.cjs` — `community_threads`/`community_replies` schema of record
+- `migrations/20261128160000_add_community_moderation.cjs` — moderation columns on `community_threads`/`community_replies`
 - `src/modules/community/domain/community-types.ts` — community domain types
 - `src/modules/community/infrastructure/community-store.ts` — in-memory community store
 - `src/modules/community/infrastructure/postgres-community-repository.ts` — community SQL implementation

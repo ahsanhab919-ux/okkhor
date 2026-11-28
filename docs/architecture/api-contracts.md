@@ -30,8 +30,8 @@ route files.
   with status `500`. The content endpoints reuse the same envelope with their own `CONTENT_*`
   codes (see §4.9–§4.12 and §6), the verification endpoints with their own `VERIFICATION_*`
   codes (see §4.13–§4.18 and §6), the community endpoints with their own `COMMUNITY_*`
-  codes (see §4.19–§4.22 and §6), and the library endpoints with their own `LIBRARY_*`
-  codes (see §4.25–§4.27 and §6).
+  codes (see §4.19–§4.22 and §4.29–§4.32 and §6), and the library endpoints with their own
+  `LIBRARY_*` codes (see §4.25–§4.27 and §6).
 - **Validation:** request bodies are validated with Zod schemas in
   `src/modules/identity/domain/auth-schemas.ts`. The first validation issue message becomes
   the `AUTH_VALIDATION_FAILED` message (`400`). Content writes use
@@ -359,7 +359,8 @@ List discussion threads, newest first. Requires an authenticated session (any ro
   ```
 
   Each summary is a `CommunityThread` plus a derived `replyCount`. `nextCursor` is present only
-  when a further page exists.
+  when a further page exists. Threads moderated to `hidden` are omitted, and `replyCount` counts
+  only visible replies ([community-moderation-slice.md](community-moderation-slice.md)).
 - **Errors:** `AUTH_UNAUTHORIZED` (401 — no/invalid session), `COMMUNITY_INVALID_CURSOR` (400)
   when `cursor` is malformed, `COMMUNITY_UNKNOWN` (500).
 
@@ -387,8 +388,10 @@ session (any role).
 
 - **Request:** `id` is the thread UUID path segment.
 - **Success** `200`: `{ "thread": { "…CommunityThread…" }, "replies": [ { "…CommunityReply…" } ] }`.
-- **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_THREAD_NOT_FOUND` (404),
-  `COMMUNITY_UNKNOWN` (500).
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_THREAD_NOT_FOUND` (404 — also returned when the
+  thread is moderated to `hidden`, indistinguishable from an unknown thread),
+  `COMMUNITY_UNKNOWN` (500). Hidden replies and the moderator audit fields are never returned to a
+  member read.
 
 ### 4.22 `POST /api/community/threads/[id]/replies`
 
@@ -398,7 +401,8 @@ Add a reply to a thread. Requires an authenticated session (any role).
   the parent thread must exist.
 - **Success** `201`: `{ "reply": { "…CommunityReply…" } }`.
 - **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_VALIDATION_FAILED` (400),
-  `COMMUNITY_THREAD_NOT_FOUND` (404 — unknown parent thread), `COMMUNITY_UNKNOWN` (500).
+  `COMMUNITY_THREAD_NOT_FOUND` (404 — unknown or hidden parent thread),
+  `COMMUNITY_THREAD_LOCKED` (409 — the thread is locked), `COMMUNITY_UNKNOWN` (500).
 
 ### 4.23 `GET /api/search`
 
@@ -511,6 +515,51 @@ library `countSavedItems`) and never round-trip through the browser, so there is
 contract to version here. See [member-profile-slice.md](member-profile-slice.md) and §7 for
 how the pages are gated.
 
+### 4.29 `GET /api/community/moderation/threads`
+
+The moderator queue: discussion threads, newest first, **hidden ones included**. Requires an
+authenticated session holding the `admin` role. See
+[community-moderation-slice.md](community-moderation-slice.md).
+
+- **Query:** `?limit=`
+  - `limit` — page size, default `20`, clamped to `[1, 50]` (the same clamp as §4.19).
+- **Success** `200`: `{ "threads": [ { "…CommunityThreadSummary…" } ] }` — each summary carries
+  `moderationState` and `locked`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_UNKNOWN` (500).
+
+### 4.30 `GET /api/community/moderation/threads/[id]`
+
+Read one thread with **all** of its replies (hidden ones included, oldest first), plus the
+moderator audit fields. Requires the `admin` role.
+
+- **Request:** `id` is the thread UUID path segment.
+- **Success** `200`:
+  `{ "thread": { "…CommunityThread…" }, "replies": [ { "…CommunityReply…" } ] }`, with
+  `moderatedBy`/`moderatedAt`/`moderationNote` present.
+- **Errors:** `COMMUNITY_THREAD_NOT_FOUND` (404), `AUTH_UNAUTHORIZED` (401),
+  `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_UNKNOWN` (500).
+
+### 4.31 `POST /api/community/moderation/threads/[id]`
+
+Apply a thread moderation action. Requires the `admin` role.
+
+- **Request:** `{ "action": "hide" | "restore" | "lock" | "unlock", "note": "…" }` — `action`
+  is required; `note` is optional (trimmed, ≤ 500).
+- **Success** `200`: `{ "thread": { "…CommunityThread…" } }` — the updated thread, with the
+  action stamped as `moderatedBy`/`moderatedAt` (and `moderationNote` when supplied).
+- **Errors:** `COMMUNITY_VALIDATION_FAILED` (400), `AUTH_UNAUTHORIZED` (401),
+  `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_THREAD_NOT_FOUND` (404), `COMMUNITY_UNKNOWN` (500).
+
+### 4.32 `POST /api/community/moderation/replies/[id]`
+
+Apply a reply moderation action. Requires the `admin` role.
+
+- **Request:** `{ "action": "hide" | "restore", "note": "…" }` — replies accept `hide` and
+  `restore` only; `note` is optional (trimmed, ≤ 500).
+- **Success** `200`: `{ "reply": { "…CommunityReply…" } }`.
+- **Errors:** `COMMUNITY_VALIDATION_FAILED` (400), `AUTH_UNAUTHORIZED` (401),
+  `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_REPLY_NOT_FOUND` (404), `COMMUNITY_UNKNOWN` (500).
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -576,7 +625,10 @@ The community endpoints use a parallel set of codes, whose executable source of 
 | --- | --- | --- |
 | `COMMUNITY_VALIDATION_FAILED` | 400 | Request body failed schema validation |
 | `COMMUNITY_INVALID_CURSOR` | 400 | `cursor` query parameter is malformed |
-| `COMMUNITY_THREAD_NOT_FOUND` | 404 | Thread id is unknown |
+| `COMMUNITY_FORBIDDEN` | 403 | Authenticated user does not hold the `admin` role |
+| `COMMUNITY_THREAD_NOT_FOUND` | 404 | Thread id is unknown (or, on a member read, moderated to `hidden`) |
+| `COMMUNITY_REPLY_NOT_FOUND` | 404 | Reply id is unknown |
+| `COMMUNITY_THREAD_LOCKED` | 409 | A reply was attempted on a locked thread |
 | `COMMUNITY_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
 The search endpoint uses a parallel set of codes, whose executable source of truth is
@@ -620,6 +672,12 @@ renders the authoring UI only for `scholar`/`admin`, otherwise a restricted noti
 `/admin/verifications` is likewise gated server-side by role: the layout renders the review
 queue only for `admin`, otherwise a restricted notice (see
 [scholar-verification-slice.md](scholar-verification-slice.md)).
+
+`/admin/community` is gated the same way: the layout renders the moderation queue only for
+`admin`, otherwise a restricted notice, and every moderation use case asserts the rule again in
+the application layer. The four moderation endpoints (§4.29–§4.32) on the `/admin/:path*`
+matcher re-check the session defensively and return `COMMUNITY_FORBIDDEN` (403) to a
+non-administrator (see [community-moderation-slice.md](community-moderation-slice.md)).
 
 `/community`, `/community/new`, and `/community/[id]` are covered by the `/community/:path*`
 matcher at the edge; the layout additionally resolves the session and renders the pages inside

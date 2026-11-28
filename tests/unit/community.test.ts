@@ -5,13 +5,29 @@ import { resetAuthStoreForTesting } from "@/src/modules/identity/infrastructure/
 import {
   createReply,
   createThread,
+  getModerationThread,
   getThread,
+  listModerationQueue,
   listThreads,
+  listThreadsByAuthor,
+  moderateReply,
+  moderateThread,
 } from "@/src/modules/community/application/community-service";
+import { canModerate } from "@/src/modules/community/domain/community-authorization";
 import { CommunityError } from "@/src/modules/community/domain/community-errors";
 import { decodeThreadCursor, encodeThreadCursor } from "@/src/modules/community/domain/community-pagination";
-import { createReplySchema, createThreadSchema } from "@/src/modules/community/domain/community-schemas";
-import type { CommunityActor } from "@/src/modules/community/domain/community-types";
+import {
+  createReplySchema,
+  createThreadSchema,
+  moderateReplySchema,
+  moderateThreadSchema,
+} from "@/src/modules/community/domain/community-schemas";
+import type {
+  CommunityActor,
+  CommunityReply,
+  CommunityThread,
+  ModerationState,
+} from "@/src/modules/community/domain/community-types";
 import {
   getMemoryCommunityRepository,
   resetCommunityStoreForTesting,
@@ -19,6 +35,7 @@ import {
 
 const member: CommunityActor = { id: "u-member", roles: ["learner"] };
 const other: CommunityActor = { id: "u-other", roles: ["scholar"] };
+const admin: CommunityActor = { id: "u-admin", roles: ["admin"] };
 
 describe("community domain rules", () => {
   it("validates the create-thread payload and defaults the category", () => {
@@ -175,6 +192,8 @@ describe("community memory repository", () => {
       category: "General",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
     });
     await repository.createThread({
       id: "t2",
@@ -184,6 +203,8 @@ describe("community memory repository", () => {
       category: "General",
       createdAt: "2026-01-02T00:00:00.000Z",
       updatedAt: "2026-01-02T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
     });
     await repository.createReply({
       id: "r1",
@@ -191,6 +212,7 @@ describe("community memory repository", () => {
       authorId: "a",
       body: "hi",
       createdAt: "2026-01-02T01:00:00.000Z",
+      moderationState: "visible",
     });
 
     const page = await repository.listThreads({ limit: 10 });
@@ -207,5 +229,227 @@ describe("community memory repository", () => {
     const second = await repository.listThreads({ limit: 1, cursor: first.nextCursor });
 
     expect(second.threads.map((thread) => thread.id)).toEqual(["t1"]);
+  });
+});
+
+describe("community moderation", () => {
+  beforeEach(() => {
+    resetAuthStoreForTesting();
+    resetCommunityStoreForTesting();
+  });
+
+  it("grants moderation to administrators only", () => {
+    expect(canModerate(["admin"])).toBe(true);
+    expect(canModerate(["learner", "admin"])).toBe(true);
+    expect(canModerate(["learner"])).toBe(false);
+    expect(canModerate(["scholar"])).toBe(false);
+    expect(canModerate([])).toBe(false);
+  });
+
+  it("validates the moderation payloads", () => {
+    for (const action of ["hide", "restore", "lock", "unlock"] as const) {
+      expect(moderateThreadSchema.parse({ action }).action).toBe(action);
+    }
+
+    expect(() => moderateThreadSchema.parse({ action: "delete" })).toThrow();
+    expect(moderateReplySchema.parse({ action: "hide" }).action).toBe("hide");
+    expect(moderateReplySchema.parse({ action: "restore" }).action).toBe("restore");
+    expect(() => moderateReplySchema.parse({ action: "lock" })).toThrow();
+    expect(moderateThreadSchema.parse({ action: "hide", note: "  spam  " }).note).toBe("spam");
+    expect(() => moderateThreadSchema.parse({ action: "hide", note: "x".repeat(501) })).toThrow();
+  });
+
+  it("rejects a non-administrator from every moderation use case with 403", async () => {
+    await expect(listModerationQueue(member)).rejects.toMatchObject({
+      code: "COMMUNITY_FORBIDDEN",
+      status: 403,
+    });
+    await expect(getModerationThread(member, "t1")).rejects.toMatchObject({
+      code: "COMMUNITY_FORBIDDEN",
+      status: 403,
+    });
+    await expect(moderateThread(member, "t1", { action: "hide" })).rejects.toMatchObject({
+      code: "COMMUNITY_FORBIDDEN",
+      status: 403,
+    });
+    await expect(moderateReply(member, "r1", { action: "hide" })).rejects.toMatchObject({
+      code: "COMMUNITY_FORBIDDEN",
+      status: 403,
+    });
+  });
+
+  it("hides a thread from every member read, keeps it in the queue, and restores it", async () => {
+    const thread = await createThread(member, { title: "Visible thread", body: "b" });
+
+    await createReply(other, thread.id, { body: "a reply" });
+
+    const hidden = await moderateThread(admin, thread.id, { action: "hide", note: "off topic" });
+
+    expect(hidden.moderationState).toBe("hidden");
+    expect(hidden.moderatedBy).toBe("u-admin");
+    expect(hidden.moderatedAt).toBeTruthy();
+    expect(hidden.moderationNote).toBe("off topic");
+
+    expect((await listThreads()).threads).toEqual([]);
+    await expect(getThread(thread.id)).rejects.toMatchObject({ code: "COMMUNITY_THREAD_NOT_FOUND" });
+    expect(await listThreadsByAuthor("u-member")).toEqual([]);
+    expect((await listModerationQueue(admin)).map((entry) => entry.id)).toEqual([thread.id]);
+
+    const restored = await moderateThread(admin, thread.id, { action: "restore" });
+
+    expect(restored.moderationState).toBe("visible");
+    expect((await listThreads()).threads.map((entry) => entry.id)).toEqual([thread.id]);
+  });
+
+  it("locks a thread so new replies are refused with 409", async () => {
+    const thread = await createThread(member, { title: "T", body: "b" });
+
+    await moderateThread(admin, thread.id, { action: "lock" });
+
+    await expect(createReply(other, thread.id, { body: "late" })).rejects.toMatchObject({
+      code: "COMMUNITY_THREAD_LOCKED",
+      status: 409,
+    });
+    await expect(getThread(thread.id)).resolves.toMatchObject({
+      thread: { locked: true },
+    });
+
+    await moderateThread(admin, thread.id, { action: "unlock" });
+    await expect(createReply(other, thread.id, { body: "ok" })).resolves.toMatchObject({ body: "ok" });
+  });
+
+  it("hides a reply from the detail read and the reply count", async () => {
+    const thread = await createThread(member, { title: "T", body: "b" });
+    const reply = await createReply(other, thread.id, { body: "first" });
+
+    await createReply(other, thread.id, { body: "second" });
+
+    const hidden = await moderateReply(admin, reply.id, { action: "hide" });
+
+    expect(hidden.moderationState).toBe("hidden");
+    expect(hidden.moderatedBy).toBe("u-admin");
+    expect(hidden.moderatedAt).toBeTruthy();
+
+    const detail = await getThread(thread.id);
+
+    expect(detail.replies.map((entry) => entry.body)).toEqual(["second"]);
+    expect((await listThreads()).threads[0].replyCount).toBe(1);
+
+    const moderationDetail = await getModerationThread(admin, thread.id);
+
+    expect(moderationDetail.replies.map((entry) => entry.body).sort()).toEqual(["first", "second"]);
+  });
+
+  it("returns 404 for an unknown reply or thread", async () => {
+    await expect(moderateReply(admin, "missing", { action: "hide" })).rejects.toMatchObject({
+      code: "COMMUNITY_REPLY_NOT_FOUND",
+      status: 404,
+    });
+    await expect(moderateThread(admin, "missing", { action: "hide" })).rejects.toMatchObject({
+      code: "COMMUNITY_THREAD_NOT_FOUND",
+      status: 404,
+    });
+    await expect(getModerationThread(admin, "missing")).rejects.toMatchObject({
+      code: "COMMUNITY_THREAD_NOT_FOUND",
+      status: 404,
+    });
+  });
+});
+
+describe("community moderation repository", () => {
+  beforeEach(() => {
+    resetCommunityStoreForTesting();
+  });
+
+  async function seedThread(id: string, moderationState: ModerationState = "visible") {
+    await getMemoryCommunityRepository().createThread({
+      id,
+      authorId: "a",
+      title: id,
+      body: "b",
+      category: "General",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      moderationState,
+      locked: false,
+    });
+  }
+
+  async function seedReply(id: string, threadId: string, moderationState: ModerationState = "visible") {
+    await getMemoryCommunityRepository().createReply({
+      id,
+      threadId,
+      authorId: "a",
+      body: id,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      moderationState,
+    });
+  }
+
+  it("omits hidden threads and replies unless asked to include them", async () => {
+    const repository = getMemoryCommunityRepository();
+
+    await seedThread("visible");
+    await seedThread("hidden", "hidden");
+    await seedReply("r1", "visible");
+    await seedReply("r2", "visible", "hidden");
+
+    expect((await repository.listThreads({ limit: 10 })).threads.map((entry) => entry.id)).toEqual([
+      "visible",
+    ]);
+    expect(
+      (await repository.listThreads({ limit: 10, includeHidden: true })).threads
+        .map((entry) => entry.id)
+        .sort(),
+    ).toEqual(["hidden", "visible"]);
+    expect((await repository.listThreads({ limit: 10 })).threads[0].replyCount).toBe(1);
+    expect((await repository.listThreadsByAuthor("a", { limit: 10 })).map((entry) => entry.id)).toEqual([
+      "visible",
+    ]);
+    expect((await repository.listRepliesByThreadId("visible")).map((entry) => entry.id)).toEqual(["r1"]);
+    expect(
+      (await repository.listRepliesByThreadId("visible", { includeHidden: true }))
+        .map((entry) => entry.id)
+        .sort(),
+    ).toEqual(["r1", "r2"]);
+    expect(await repository.getReplyById("r2")).toMatchObject({ moderationState: "hidden" });
+    expect(await repository.getReplyById("missing")).toBeUndefined();
+  });
+
+  it("persists the moderation columns on a thread and a reply", async () => {
+    const repository = getMemoryCommunityRepository();
+
+    await seedThread("t1");
+    await seedReply("r1", "t1");
+
+    const thread = (await repository.getThreadById("t1")) as CommunityThread;
+
+    await repository.updateThreadModeration({
+      ...thread,
+      moderationState: "hidden",
+      locked: true,
+      moderatedBy: "u-admin",
+      moderatedAt: "2026-02-01T00:00:00.000Z",
+      moderationNote: "note",
+    });
+
+    const reply = (await repository.getReplyById("r1")) as CommunityReply;
+
+    await repository.updateReplyModeration({
+      ...reply,
+      moderationState: "hidden",
+      moderatedBy: "u-admin",
+    });
+
+    expect(await repository.getThreadById("t1")).toMatchObject({
+      moderationState: "hidden",
+      locked: true,
+      moderatedBy: "u-admin",
+      moderationNote: "note",
+    });
+    expect(await repository.getReplyById("r1")).toMatchObject({
+      moderationState: "hidden",
+      moderatedBy: "u-admin",
+    });
   });
 });
