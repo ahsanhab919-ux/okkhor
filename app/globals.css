@@ -3225,9 +3225,10 @@ code {
   font-size: 0.78rem;
 }
 
-/* Authoring studio — the Stitch "Content Creator Studio" canvas: a page hero over the metadata
-   editor. Stitch draws its inputs as filled, borderless fields with uppercase micro-labels. */
-.studio-hero {
+/* The shared workspace page hero — the Stitch page header (title + lead + action) used by the
+   authoring studio ("Content Creator Studio") and the admin console ("Okkhor Admin"). Stitch draws
+   its own console inputs as filled, borderless fields with uppercase micro-labels. */
+.page-hero {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -3237,7 +3238,14 @@ code {
   border-bottom: 1px solid var(--color-line);
 }
 
-.studio-hero__title {
+.page-hero__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.page-hero__title {
   margin: 0;
   font-size: clamp(1.9rem, 3.4vw, 2.7rem);
   font-weight: 800;
@@ -3245,11 +3253,64 @@ code {
   line-height: 1.1;
 }
 
-.studio-hero__lead {
+.page-hero__lead {
   margin: 10px 0 0;
   max-width: 62ch;
   color: var(--color-on-surface-variant);
   line-height: 1.65;
+}
+
+.page-hero__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* The console KPI: a real queue count, not a decorative metric. */
+.page-hero__count {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  padding-left: 18px;
+  border-left: 1px solid var(--color-line);
+}
+
+.page-hero__count strong {
+  font-family: var(--font-headline);
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-on-surface);
+}
+
+.page-hero__count span {
+  color: var(--color-outline);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.console-stack {
+  display: grid;
+  gap: 20px;
+}
+
+/* The verification review console — the Stitch "Submission Review" split: the application data on
+   the left, the decision on a sticky right rail. */
+.review-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.review-console__rail {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 16px;
 }
 
 .item-editor {
@@ -3309,9 +3370,26 @@ code {
   box-shadow: 0 0 0 3px rgba(173, 198, 255, 0.16);
 }
 
+@media (max-width: 900px) {
+  .review-console {
+    grid-template-columns: 1fr;
+  }
+
+  .review-console__rail {
+    position: static;
+  }
+}
+
 @media (max-width: 640px) {
-  .studio-hero {
+  .page-hero {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .page-hero__count {
+    justify-items: start;
+    padding-left: 0;
+    padding-top: 4px;
+    border-left: 0;
   }
 }
