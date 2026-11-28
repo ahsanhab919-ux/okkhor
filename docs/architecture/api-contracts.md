@@ -423,6 +423,11 @@ Add a reply to a thread. Requires an authenticated session (any role).
 - **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_VALIDATION_FAILED` (400),
   `COMMUNITY_THREAD_NOT_FOUND` (404 — unknown or hidden parent thread),
   `COMMUNITY_THREAD_LOCKED` (409 — the thread is locked), `COMMUNITY_UNKNOWN` (500).
+- **Side effect:** on a successful `201`, the route creates a `reply_posted` notification for the
+  thread's author and the authors of its prior visible replies, excluding the replier
+  ([reply-notifications-slice.md](reply-notifications-slice.md)). It is best-effort — the `201`
+  response is unchanged even if a notification cannot be stored or delivered — and the notification
+  carries no reply text and no replier identity.
 
 ### 4.23 `GET /api/search`
 
