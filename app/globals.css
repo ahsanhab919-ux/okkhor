@@ -3042,3 +3042,78 @@ code {
     height: 42px;
   }
 }
+
+/* Profile — the Stitch "Profile" / "Scholar Profile" identity header, shared by /profile and /u/[id].
+   The avatar is an initials monogram (models carry no portrait); the inset ring paints the panel
+   background over the gradient so only a rim shows. */
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 26px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.profile-hero__avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 74px;
+  height: 74px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+  box-shadow:
+    inset 0 0 0 3px var(--color-surface-container-low),
+    0 18px 44px rgba(59, 130, 246, 0.28);
+  color: var(--color-primary);
+  font-family: var(--font-headline);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.profile-hero__body {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.profile-hero__name {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: clamp(1.9rem, 3.4vw, 2.7rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.profile-hero__role {
+  margin: 0;
+  color: var(--color-primary);
+  font-family: var(--font-headline);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.profile-hero__since {
+  margin: 0;
+  color: var(--color-outline);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .profile-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .profile-hero__avatar {
+    width: 62px;
+    height: 62px;
+    font-size: 1.3rem;
+  }
+}
