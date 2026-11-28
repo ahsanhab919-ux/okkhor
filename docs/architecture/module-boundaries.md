@@ -288,12 +288,35 @@ published-target check are all composition-root concerns resolved in `app/**` (v
 `getPublishedItemsByIds` public surface). It does not import `content`, `search`, or
 `verification` behaviour.
 
+### 5.10 `notifications` — implemented, fully layered
+
+```
+src/modules/notifications/
+  domain/         notification-types.ts, notification-errors.ts,
+                  notification-schemas.ts       (limit parsing)
+  application/    notification-service.ts       (create + delivery, list/mark use cases)
+  infrastructure/ notification-repository.ts    (driver selector)
+                  notification-store.ts          (in-memory repository)
+                  postgres-notification-repository.ts
+  api/            notification-http.ts          (response + error shaping)
+  ui/             notification-list.tsx          (server presentational list)
+                  notification-actions.tsx       (mark-read / mark-all-read island)
+```
+
+`notifications` owns the member inbox: it writes only to its one `notifications` table and stores
+no contact points and no copies of moderated content. It depends on `platform` for the shared
+Postgres pool config and the notification port (`notification-service.ts` imports
+`getNotificationChannels`), and it imports **no other domain module**. The producers are joined to
+it at the composition root: `app/api/community/notify-moderation.ts` resolves the recipient's
+contact points through identity's `getNotificationDestinationById` and calls `createNotification`
+after a moderation write commits, so neither `community` nor `notifications` imports the other.
+
 ## 6. Cross-Module Rules
 
 Current dependency edges (verified in code):
 
 - `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, `content`,
-  `verification`, `community`, `search`, `summarization`, and `library`.
+  `verification`, `community`, `search`, `summarization`, `library`, and `notifications`.
 - `identity` depends on `platform` for the ephemeral store (`auth-rate-limit.ts` imports
   `getEphemeralStore`) and for the notification port (the password-reset use case imports
   `getNotificationChannels`). Both are the same existing `identity → platform` edge; the slice
@@ -345,6 +368,19 @@ Current dependency edges (verified in code):
   confirm rate-limit scope, and the `email-settings-form.tsx` island) all stay internal to
   `identity`. The one new endpoint (`PATCH /api/auth/profile`) is composed in
   `app/api/auth/profile/route.ts`, the sole composition root for the email edit.
+- `notifications` depends on `platform` for the shared Postgres pool config
+  (`postgres-notification-repository.ts` imports `getPostgresPoolConfig`) and for the
+  notification port (`notification-service.ts` imports `getNotificationChannels` — the same
+  `platform` edge password reset uses). It imports **no other domain module**.
+- The **notifications slice** adds one new module (`notifications`, §5.10) and no edge between
+  `community` and `notifications`. The producers are joined at the composition root:
+  `app/api/community/notify-moderation.ts` turns a moderation outcome (thread hide, reply hide,
+  report resolve/dismiss) into a `createNotification` call, resolving the recipient's contact
+  points through identity's `getNotificationDestinationById` — a new identity public function
+  that stays within identity's existing `platform` edge. The three producer routes
+  (`app/api/community/moderation/**`) invoke the helper after their already-authorized use case
+  commits; the inbox routes (`app/api/notifications/**`) and the `/notifications` page are
+  composed in `app/**`, so no module reaches into another.
 
 Rules that follow:
 

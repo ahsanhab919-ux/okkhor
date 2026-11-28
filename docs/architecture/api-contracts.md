@@ -567,6 +567,11 @@ Apply a thread moderation action. Requires the `admin` role.
   is required; `note` is optional (trimmed, ≤ 500).
 - **Success** `200`: `{ "thread": { "…CommunityThread…" } }` — the updated thread, with the
   action stamped as `moderatedBy`/`moderatedAt` (and `moderationNote` when supplied).
+- **Behaviour:** on a `hide` action the route additionally notifies the thread's author through the
+  `platform` channels (unless the moderator is the author); the response is **unchanged**, and the
+  notification is created after the moderation write and is best-effort, so it can never fail the
+  request. `restore`/`lock`/`unlock` notify no one. See
+  [notifications-slice.md](notifications-slice.md) §6.4.
 - **Errors:** `COMMUNITY_VALIDATION_FAILED` (400), `AUTH_UNAUTHORIZED` (401),
   `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_THREAD_NOT_FOUND` (404), `COMMUNITY_UNKNOWN` (500).
 
@@ -577,6 +582,10 @@ Apply a reply moderation action. Requires the `admin` role.
 - **Request:** `{ "action": "hide" | "restore", "note": "…" }` — replies accept `hide` and
   `restore` only; `note` is optional (trimmed, ≤ 500).
 - **Success** `200`: `{ "reply": { "…CommunityReply…" } }`.
+- **Behaviour:** on a `hide` action the route additionally notifies the reply's author (unless the
+  moderator is the author); the response is **unchanged**, and the notification is best-effort so it
+  can never fail the request. `restore` notifies no one. See
+  [notifications-slice.md](notifications-slice.md) §6.4.
 - **Errors:** `COMMUNITY_VALIDATION_FAILED` (400), `AUTH_UNAUTHORIZED` (401),
   `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_REPLY_NOT_FOUND` (404), `COMMUNITY_UNKNOWN` (500).
 
@@ -634,8 +643,43 @@ See [member-reporting-slice.md](member-reporting-slice.md) §6.3.
   optional (trimmed, ≤ 500).
 - **Success** `200`: `{ "report": { "…CommunityReport…" } }` — the closed report, with
   `status`/`resolvedBy`/`resolvedAt` (and `resolutionNote` when supplied).
+- **Behaviour:** on a `resolve`/`dismiss` action the route additionally notifies the report's
+  reporter (unless the moderator is the reporter); the response is **unchanged**, and the
+  notification is best-effort so it can never fail the request. See
+  [notifications-slice.md](notifications-slice.md) §6.4.
 - **Errors:** `COMMUNITY_VALIDATION_FAILED` (400), `AUTH_UNAUTHORIZED` (401),
   `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_REPORT_NOT_FOUND` (404), `COMMUNITY_UNKNOWN` (500).
+
+### 4.37 `GET /api/notifications`
+
+The caller's inbox, newest first. Requires an authenticated session (any role); owner-scoped to
+that session's member. See [notifications-slice.md](notifications-slice.md) §6.1.
+
+- **Query:** `?limit=` — page size, default `20`, clamped to `[1, 50]`.
+- **Success** `200`: `{ "notifications": [ { "…Notification…" } ] }` — the caller's notifications,
+  newest first.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `NOTIFICATION_UNKNOWN` (500).
+
+### 4.38 `POST /api/notifications/[id]/read`
+
+Mark one of the caller's notifications read. Requires an authenticated session (any role);
+owner-scoped. See [notifications-slice.md](notifications-slice.md) §6.2.
+
+- **Request:** no body.
+- **Success** `200`: `{ "notification": { "…Notification…" } }` — the notification with `readAt`
+  set; repeated calls return the same read notification (idempotent).
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `NOTIFICATION_NOT_FOUND` (404 — an unknown id **or** a
+  notification that belongs to another member; the same response in both cases, so the path is not
+  an existence oracle), `NOTIFICATION_UNKNOWN` (500).
+
+### 4.39 `POST /api/notifications/read-all`
+
+Mark every unread notification of the caller read. Requires an authenticated session (any role);
+owner-scoped. See [notifications-slice.md](notifications-slice.md) §6.3.
+
+- **Request:** no body.
+- **Success** `200`: `{ "updated": 3 }` — the number of notifications marked read.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `NOTIFICATION_UNKNOWN` (500).
 
 ## 5. Rate Limiting
 
@@ -741,11 +785,19 @@ truth is `src/modules/library/domain/library-errors.ts`:
 | `LIBRARY_ITEM_NOT_FOUND` | 404 | The item to save does not exist or is not published |
 | `LIBRARY_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
+The notifications endpoints (§4.37–§4.39) use a parallel set of codes, whose executable source of
+truth is `src/modules/notifications/domain/notification-errors.ts`:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `NOTIFICATION_NOT_FOUND` | 404 | The notification id is unknown **or** belongs to another member — the same response in both cases |
+| `NOTIFICATION_UNKNOWN` | 500 | Unhandled failure (fallback) |
+
 ## 7. Route Protection (non-API)
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
 
-- matchers: `/search/:path*`, `/community/:path*`, `/categories/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`, `/library/:path*`, `/profile/:path*`
+- matchers: `/search/:path*`, `/community/:path*`, `/categories/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`, `/library/:path*`, `/notifications/:path*`, `/profile/:path*`
 - behaviour: verify `okkhor_access` at the edge; on missing/invalid token redirect to
   `/auth?next=<original-path>`.
 

@@ -73,6 +73,7 @@ Exactly these files carry `"use client"` (the interactive islands):
 | `src/modules/content/ui/item-editor-form.tsx` | authoring form `useState`, submit handler, `useRouter` | drives `POST`/`PATCH /api/content/items`; shows the transient AI English preview on publish |
 | `src/modules/library/ui/save-item-button.tsx` | Save/Saved toggle `useState`, handlers, `useRouter` | drives `POST`/`DELETE /api/library/items`; also exports the `RemoveSavedItemButton` used on `/library` |
 | `src/modules/identity/ui/email-settings-form.tsx` | owner-only email edit `useState` + one PATCH handler | drives `PATCH /api/auth/profile`; rendered on `/profile` |
+| `src/modules/notifications/ui/notification-actions.tsx` | mark-one-read / mark-all-read handlers, `useRouter` | drives `POST /api/notifications/[id]/read` and `/api/notifications/read-all`; exports `MarkReadButton` and `MarkAllReadButton` on `/notifications` |
 
 `src/modules/identity/client/session-client.ts` is also `"use client"` but is a **helper
 module**, not a component: it wraps `fetch` against the auth API with
@@ -155,6 +156,13 @@ the current `email` down as a serializable prop, alongside the server-safe `Prof
 "code sent" reset guidance but remains the same single island, so no new boundary is introduced
 there. Delivery itself is server-side only — the code never becomes client state outside the
 dev-only preview.
+
+The notifications slice adds **one** island — `notification-actions.tsx`, which exports the
+`MarkReadButton` and `MarkAllReadButton` controls on `/notifications`. It owns only transient
+request state plus `useRouter`; the inbox list itself is the server-safe
+`notification-list.tsx` view, and `app/notifications/page.tsx` stays a server component that
+resolves the viewer and loads their inbox server-side. Delivery and persistence are entirely
+server-side — a delivered `NotificationMessage` never becomes client state.
 
 ## 6. Import Graph Nuance
 

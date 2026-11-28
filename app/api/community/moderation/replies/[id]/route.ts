@@ -6,6 +6,7 @@ import { authErrorResponse } from "@/src/modules/identity/api/auth-http";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
 
 import { resolveCommunityActor } from "../../../community-actor";
+import { notifyReplyModeration } from "../../../notify-moderation";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const { id } = await context.params;
     const body = await request.json();
     const reply = await moderateReply(actor, id, body);
+
+    await notifyReplyModeration(actor.id, body.action, reply);
 
     return communityJson({ reply });
   } catch (error) {

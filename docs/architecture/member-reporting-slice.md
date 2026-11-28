@@ -99,7 +99,9 @@ Acceptance criteria:
 - **auto-hiding on a report threshold** — reports queue for human review only; a report never hides
   content by itself, so there is no brigading lever (§13 decision 3)
 - **notifications** — neither the reporter nor the reported member is emailed or messaged about a
-  report or its outcome; the platform notification port is not wired here
+  report or its outcome; the platform notification port is not wired here (**partly resolved** by the
+  [notifications slice](notifications-slice.md), which notifies the reporter when a report is resolved
+  or dismissed and the author when their thread/reply is hidden)
 - **a per-member report rate limit** — flooding is bounded by the one-report-per-item rule (§13
   decision 4); a time-based throttle would add ephemeral state (`ADR-005`) and is deferred, as the
   community slice also deferred rate limiting
