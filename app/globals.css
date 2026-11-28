@@ -584,6 +584,169 @@ h3 {
   margin-top: 0;
 }
 
+/* ---- Auth page chrome ---- source of truth: Stitch "Sign In - Okkhor Desktop" */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+}
+
+.auth-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 20px;
+}
+
+.auth-topbar__lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-headline);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.auth-canvas {
+  position: relative;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 24px 20px 48px;
+  overflow: hidden;
+}
+
+.auth-ambient {
+  position: absolute;
+  border-radius: var(--radius-pill);
+  filter: blur(110px);
+  pointer-events: none;
+}
+
+.auth-ambient--primary {
+  top: -12%;
+  left: -8%;
+  width: 42%;
+  height: 42%;
+  background: rgba(173, 198, 255, 0.08);
+}
+
+.auth-ambient--tertiary {
+  bottom: -12%;
+  right: -8%;
+  width: 32%;
+  height: 32%;
+  background: rgba(255, 183, 134, 0.06);
+}
+
+.auth-column {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 620px;
+}
+
+.auth-intro {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.auth-intro h1 {
+  margin-bottom: 10px;
+  font-size: clamp(2rem, 5vw, 2.6rem);
+  letter-spacing: -0.03em;
+}
+
+.auth-intro p {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.9rem;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+/* Auth cards follow the Stitch card: surface-container, 12px radius, deep shadow. */
+.auth-column .auth-shell {
+  grid-template-columns: 1fr;
+}
+
+.auth-column .auth-hero-panel,
+.auth-column .auth-card,
+.auth-column .credential-panel {
+  background: var(--color-surface-container);
+  border-radius: var(--radius-md);
+  border-color: var(--color-line);
+}
+
+/* Stitch micro-labels + focused input ring, scoped to the auth page. */
+.auth-column .field span {
+  font-family: var(--font-headline);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-on-surface-variant);
+}
+
+.auth-column .field input {
+  border-radius: var(--radius-sm);
+  border-color: var(--color-line);
+  background: var(--color-surface-container-lowest);
+}
+
+.auth-column .field input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(173, 198, 255, 0.18);
+}
+
+.auth-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 28px 20px 36px;
+  border-top: 1px solid var(--color-line);
+}
+
+.auth-footer p {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-outline);
+}
+
+.auth-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.auth-footer__links a {
+  font-family: var(--font-headline);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-outline);
+  transition: color 0.2s ease;
+}
+
+.auth-footer__links a:hover {
+  color: var(--color-primary);
+}
+
 .community-preview__cards {
   display: grid;
   gap: 16px;
