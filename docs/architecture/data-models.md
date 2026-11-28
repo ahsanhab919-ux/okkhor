@@ -9,17 +9,19 @@
 Define the data the system owns: the domain types the code speaks in, the PostgreSQL schema
 that persists them, the in-memory equivalent used in tests, and the optional ephemeral store.
 This is the schema of record for the `auth_*` tables, `content_items`,
-`scholar_verifications`, `community_threads`, and `community_replies`, and the contract every
-repository implementation must satisfy.
+`scholar_verifications`, `community_threads`, `community_replies`, and `saved_items`, and the
+contract every repository implementation must satisfy.
 
 ## 2. Domain Types
 
 Identity types are defined in `src/modules/identity/domain/auth-types.ts` (§2.1–§2.5),
 content types in `src/modules/content/domain/content-types.ts` (§2.6), verification types
-in `src/modules/verification/domain/verification-types.ts` (§2.7), and community types in
-`src/modules/community/domain/community-types.ts` (§2.8). Types are the shared language;
+in `src/modules/verification/domain/verification-types.ts` (§2.7), community types in
+`src/modules/community/domain/community-types.ts` (§2.8), and library types in
+`src/modules/library/domain/library-types.ts` (§2.11). Types are the shared language;
 storage is an implementation detail behind each module's repository interface
-(`AuthRepository`, `ContentRepository`, `VerificationRepository`, `CommunityRepository`).
+(`AuthRepository`, `ContentRepository`, `VerificationRepository`, `CommunityRepository`,
+`LibraryRepository`).
 
 ### 2.1 `UserProfile`
 
@@ -221,6 +223,27 @@ publish response.
 `SummaryProvider` = `{ summarize(input: SummarizeInput): Promise<SummaryResult> }` — implemented
 by the deterministic fake provider (test) and the Gemini provider.
 
+### 2.11 `SavedItem` (library)
+
+The per-member save relation — a member's saved research item. Defined in
+`src/modules/library/domain/library-types.ts`.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `userId` | `string` | The acting member; the save is scoped to this id |
+| `itemId` | `string` | The saved research item; the `(userId, itemId)` pair is the identity, so a save carries **no** surrogate id |
+| `savedAt` | `string` (ISO) | The list sort key (descending) |
+
+Related types: `LibraryActor` (`{ id, roles }`, resolved from identity at the composition
+root), `SaveItemInput` (`{ itemId }`), `ListSavedItemsInput` (`{ limit? }`),
+`ListSavedItemsOptions` (`{ limit }`), `LibraryStore` (`{ saves: Map<string, SavedItem> }`,
+keyed `${userId}:${itemId}`), and `LibraryRepository` (`listSavedItems`, `isItemSaved`,
+`saveItem`, `removeSavedItem`). `saveItem` is an idempotent upsert on `(userId, itemId)`: it
+returns the save that is stored afterwards (the new one, or the pre-existing save). The module
+stores **no item content** — it imports content **types only** where it must name an item;
+hydration and the published-item check happen at the composition root (§8 of
+[library-slice.md](library-slice.md)).
+
 ## 3. PostgreSQL Schema
 
 The `auth_*` tables (§3.1–§3.3) are created by
@@ -230,7 +253,9 @@ The `auth_*` tables (§3.1–§3.3) are created by
 and `scholar_verifications` (§3.5) by
 `migrations/20261128110000_create_scholar_verifications.cjs` (see
 `scholar-verification-slice.md`), and `community_threads`/`community_replies` (§3.6–§3.7) by
-`migrations/20261128120000_create_community_tables.cjs` (see `community-slice.md`).
+`migrations/20261128120000_create_community_tables.cjs` (see `community-slice.md`), and
+`saved_items` (§3.8) by `migrations/20261128130000_create_saved_items.cjs` (see
+`library-slice.md`).
 Timestamps are stored as ISO-8601
 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
 portability is preferred over database-side timezone arithmetic; `roles`, `tags`, `degrees`,
@@ -355,7 +380,25 @@ per-thread reply read (`WHERE thread_id = $1 ORDER BY created_at ASC, id ASC`). 
 `thread_id`/`author_id` foreign key (matching the authorship and `applicant_id` columns —
 modules stay decoupled).
 
-### 3.8 Migration Operations
+### 3.8 `saved_items`
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `user_id` | `text` | not null |
+| `item_id` | `text` | not null |
+| `saved_at` | `text` | not null |
+
+Composite primary key `(user_id, item_id)` — the pair is the identity of a save, so a duplicate
+save is impossible at the database. Index `saved_items_user_id_saved_at_item_id_idx` on
+`(user_id, saved_at, item_id)` to support the newest-first list
+(`WHERE user_id = $1 ORDER BY saved_at DESC, item_id DESC LIMIT $2`). There is no
+`user_id`/`item_id` foreign key (matching the other authored columns — modules stay decoupled);
+the item's existence and published status are checked at save time by the composition root
+(see `library-slice.md` §7). The save is an idempotent upsert
+(`INSERT … ON CONFLICT (user_id, item_id) DO NOTHING`), and removal is a plain
+`DELETE … WHERE user_id = $1 AND item_id = $2` whose affected-row count is the result.
+
+### 3.9 Migration Operations
 
 Managed by `node-pg-migrate` (config keys kebab-case, `single-transaction: true`). See
 `docs/configuration.md` for commands. The auth migration's `down` drops the three tables in
@@ -363,7 +406,8 @@ dependent order (`auth_password_resets`, then the index, then `auth_sessions`, t
 `auth_users`); the content migration's `down` drops the index, then `content_items`; the
 authorship migration's `down` drops `author_id` and `updated_by`; the verification migration's
 `down` drops both indexes, then `scholar_verifications`; the community migration's `down` drops
-both indexes, then `community_replies`, then `community_threads`.
+both indexes, then `community_replies`, then `community_threads`; the library migration's
+`down` drops the index, then `saved_items`.
 
 ## 4. In-Memory Store
 
@@ -424,6 +468,17 @@ filters by `threadId` and sorts ascending. Like the other stores it is cached on
 `getMemoryCommunityRepository().listThreads(...)`, filters them, and returns `SearchDocument`s.
 It is cached on `globalThis` (`__okkhorMemorySearchRepository`) but holds no data, so it needs
 no reset hook — resetting the content and community stores is enough.
+
+### 4.6 Library store
+
+Defined in `src/modules/library/infrastructure/library-store.ts`. `LibraryStore` holds a single
+`saves: Map<string, SavedItem>` keyed `${userId}:${itemId}` — the pair is the save's identity,
+mirroring the composite primary key. `listSavedItems` filters to the member's saves, sorts by
+`savedAt` descending then `itemId` descending, and truncates to the requested limit;
+`isItemSaved` is a map lookup; `saveItem` is an idempotent upsert that returns the pre-existing
+save when the pair is already present. Like the other stores it is cached on `globalThis`
+(`__okkhorLibraryStore` / `__okkhorMemoryLibraryRepository`) and replaced between tests by
+`resetLibraryStoreForTesting()`.
 
 ## 5. Persistence Driver Selection
 
@@ -566,6 +621,25 @@ application code calls `getSummaryProvider()` (or `summarizeResearchItem`). The 
 credential (`GEMINI_API_KEY`) is read only in `infrastructure`. Unlike the storage drivers above,
 `auto` without a credential throws `AI_UNAVAILABLE` (503) at call time rather than at import.
 
+### 5.9 Library repository
+
+`src/modules/library/infrastructure/library-repository.ts` is the single decision point for the
+`library` module, using its own driver variable:
+
+```
+LIBRARY_STORAGE_DRIVER = auto | memory | postgres   (default: auto)
+  memory   → memory repository
+  postgres → postgres repository
+  auto     → NODE_ENV === "test"        → memory
+             else DATABASE_URL present  → postgres
+             else                       → throw (misconfiguration)
+```
+
+Both implementations satisfy the `LibraryRepository` interface. Application code calls
+`getLibraryRepository()`; the driver is independent of the other modules' drivers. The postgres
+`saveItem` issues `INSERT … ON CONFLICT (user_id, item_id) DO NOTHING RETURNING …` and falls
+back to a `SELECT` for the stored row when the insert was a no-op (the idempotent re-save).
+
 ## 6. Data Classification and Handling
 
 | Data | Classification | Handling rule |
@@ -621,6 +695,10 @@ Automatic retention jobs are future work, not a current behaviour.
 - `src/modules/community/domain/community-types.ts` — community domain types
 - `src/modules/community/infrastructure/community-store.ts` — in-memory community store
 - `src/modules/community/infrastructure/postgres-community-repository.ts` — community SQL implementation
+- `migrations/20261128130000_create_saved_items.cjs` — `saved_items` schema of record
+- `src/modules/library/domain/library-types.ts` — library domain types
+- `src/modules/library/infrastructure/library-store.ts` — in-memory library store
+- `src/modules/library/infrastructure/postgres-library-repository.ts` — library SQL implementation
 - `docs/configuration.md` — connection env vars and migration commands
 - `docs/adr/ADR-004-adopt-postgresql-as-primary-source-of-truth.md`
 - `docs/adr/ADR-005-adopt-redis-for-cache-and-ephemeral-state.md`

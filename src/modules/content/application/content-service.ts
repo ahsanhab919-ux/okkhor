@@ -113,6 +113,19 @@ export async function getPublishedItem(id: string): Promise<ResearchItem> {
   return item;
 }
 
+/**
+ * The published items for the given ids, in the order requested; ids that no longer resolve to a
+ * published item are omitted. Called by the composition root (the library slice) to hydrate a
+ * member's saved list and to validate a save target.
+ */
+export async function getPublishedItemsByIds(ids: string[]): Promise<ResearchItem[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  return getContentRepository().getPublishedItemsByIds(ids);
+}
+
 /** The authoring list: every item regardless of status, newest-edited first. */
 export async function listContentItems(): Promise<ResearchItem[]> {
   return getContentRepository().listItems();

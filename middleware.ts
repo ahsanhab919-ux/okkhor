@@ -29,5 +29,12 @@ function redirectToAuth(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/search/:path*", "/community/:path*", "/scholar-verify/:path*", "/studio/:path*", "/admin/:path*"],
+  matcher: [
+    "/search/:path*",
+    "/community/:path*",
+    "/scholar-verify/:path*",
+    "/studio/:path*",
+    "/admin/:path*",
+    "/library/:path*",
+  ],
 };

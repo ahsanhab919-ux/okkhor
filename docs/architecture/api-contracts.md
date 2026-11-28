@@ -29,8 +29,9 @@ route files.
   Unhandled failures return `{ "error": { "code": "AUTH_UNKNOWN", "message": "Unexpected authentication failure." } }`
   with status `500`. The content endpoints reuse the same envelope with their own `CONTENT_*`
   codes (see §4.9–§4.12 and §6), the verification endpoints with their own `VERIFICATION_*`
-  codes (see §4.13–§4.18 and §6), and the community endpoints with their own `COMMUNITY_*`
-  codes (see §4.19–§4.22 and §6).
+  codes (see §4.13–§4.18 and §6), the community endpoints with their own `COMMUNITY_*`
+  codes (see §4.19–§4.22 and §6), and the library endpoints with their own `LIBRARY_*`
+  codes (see §4.25–§4.27 and §6).
 - **Validation:** request bodies are validated with Zod schemas in
   `src/modules/identity/domain/auth-schemas.ts`. The first validation issue message becomes
   the `AUTH_VALIDATION_FAILED` message (`400`). Content writes use
@@ -39,7 +40,9 @@ route files.
   `src/modules/verification/domain/verification-schemas.ts`, yielding
   `VERIFICATION_VALIDATION_FAILED` (`400`); community writes use
   `src/modules/community/domain/community-schemas.ts`, yielding
-  `COMMUNITY_VALIDATION_FAILED` (`400`).
+  `COMMUNITY_VALIDATION_FAILED` (`400`); library writes use
+  `src/modules/library/domain/library-schemas.ts`, yielding
+  `LIBRARY_VALIDATION_FAILED` (`400`).
 
 ## 3. Cookie Contract
 
@@ -457,6 +460,48 @@ scholar/admin-gated authoring path. See
   `CONTENT_VALIDATION_FAILED` (400).
 - **Errors:** `AI_SUMMARY_FAILED` (502), `AI_UNAVAILABLE` (503), `AI_UNKNOWN` (500).
 
+### 4.25 `GET /api/library`
+
+List the caller's saved research items, hydrated to full research items, newest-saved first.
+Requires an authenticated session (any role). See [library-slice.md](library-slice.md).
+
+- **Query:** `?limit=`
+  - `limit` — page size, default `20`, clamped to `[1, 50]`.
+- **Success** `200`:
+
+  ```json
+  { "items": [ { "item": { "…ResearchItem…" }, "savedAt": "2026-11-28T10:00:00.000Z" } ], "total": 3 }
+  ```
+
+  Each entry pairs the hydrated research item with the save time. The composition root
+  hydrates each saved `itemId` through the content module; a save whose item is no longer
+  published (unpublished or deleted) is silently omitted, so `total` counts only the
+  hydrated entries.
+- **Errors:** `AUTH_UNAUTHORIZED` (401 — no/invalid session), `LIBRARY_VALIDATION_FAILED` (400),
+  `LIBRARY_UNKNOWN` (500).
+
+### 4.26 `POST /api/library/items`
+
+Save a published research item to the caller's library. Requires an authenticated session
+(any role).
+
+- **Request:** `{ "itemId": "…" }` — `itemId` is a non-empty string (1–200 chars) naming a
+  **published** research item. The published check is done at the composition root through the
+  content module.
+- **Success** `201`: `{ "item": { "userId": "…", "itemId": "…", "savedAt": "…" } }` — or `200`
+  with the existing save when the item was already saved. The write is idempotent on
+  `(userId, itemId)`, so a second save never creates a duplicate.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `LIBRARY_VALIDATION_FAILED` (400 — bad body),
+  `LIBRARY_ITEM_NOT_FOUND` (404 — unknown or unpublished item), `LIBRARY_UNKNOWN` (500).
+
+### 4.27 `DELETE /api/library/items/[id]`
+
+Remove a saved item. Requires an authenticated session (any role).
+
+- **Request:** `id` is the research-item id path segment.
+- **Success** `200`: `{ "removed": true | false }` — idempotent; `false` when nothing was saved.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `LIBRARY_UNKNOWN` (500).
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -542,11 +587,20 @@ is `src/modules/summarization/domain/summarization-errors.ts`:
 | `AI_UNAVAILABLE` | 503 | Summarization is not configured (no provider credentials) |
 | `AI_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
+The library endpoints (§4.25–§4.27) use a parallel set of codes, whose executable source of
+truth is `src/modules/library/domain/library-errors.ts`:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `LIBRARY_VALIDATION_FAILED` | 400 | Request body/query failed schema validation (missing `itemId`) |
+| `LIBRARY_ITEM_NOT_FOUND` | 404 | The item to save does not exist or is not published |
+| `LIBRARY_UNKNOWN` | 500 | Unhandled failure (fallback) |
+
 ## 7. Route Protection (non-API)
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
 
-- matchers: `/search/:path*`, `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`
+- matchers: `/search/:path*`, `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`, `/library/:path*`
 - behaviour: verify `okkhor_access` at the edge; on missing/invalid token redirect to
   `/auth?next=<original-path>`.
 
@@ -570,8 +624,16 @@ resolves the session and renders the pages inside the protected workspace chrome
 `AUTH_UNAUTHORIZED` (401) without one. Because discovery is members-only, the search index
 must never surface member-only community threads to anonymous visitors (`ADR-006`).
 
+`/library` is covered by the `/library/:path*` matcher at the edge; the layout additionally
+resolves the session and renders the page inside the protected workspace chrome. The three
+library endpoints (§4.25–§4.27) re-check the session defensively and return `AUTH_UNAUTHORIZED`
+(401) without one — there is no role requirement (any authenticated member may keep a library;
+see [library-slice.md](library-slice.md)).
+
 The `/content` and `/content/[id]` pages are **not** gated: the read path is intentionally
-public (see `content-comprehension-slice.md`).
+public (see `content-comprehension-slice.md`). The item detail page renders the `SaveItemButton`
+island: an authenticated viewer gets the Save/Saved toggle, and an anonymous visitor gets a
+sign-in affordance that returns to the item (`/auth?next=/content/[id]`).
 
 ## 8. Client Usage
 

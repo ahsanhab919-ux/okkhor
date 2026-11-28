@@ -52,6 +52,13 @@ function createMemoryContentRepository(): ContentRepository {
 
       return item && item.status === "published" ? item : undefined;
     },
+    async getPublishedItemsByIds(ids) {
+      return ids.flatMap((id) => {
+        const item = getContentStore().items.get(id);
+
+        return item && item.status === "published" ? [item] : [];
+      });
+    },
     async getItemById(id) {
       return getContentStore().items.get(id);
     },

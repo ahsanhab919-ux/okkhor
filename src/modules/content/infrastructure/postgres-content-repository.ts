@@ -93,6 +93,27 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
 
       return result.rows[0] ? mapContentItemRow(result.rows[0]) : undefined;
     },
+    async getPublishedItemsByIds(ids) {
+      if (ids.length === 0) {
+        return [];
+      }
+
+      const result = await pool.query<PostgresContentItemRow>(
+        "SELECT * FROM content_items WHERE status = 'published' AND id = ANY($1::text[])",
+        [ids],
+      );
+      const byId = new Map(result.rows.map((row) => {
+        const item = mapContentItemRow(row);
+
+        return [item.id, item] as const;
+      }));
+
+      return ids.flatMap((id) => {
+        const item = byId.get(id);
+
+        return item ? [item] : [];
+      });
+    },
     async getItemById(id) {
       const result = await pool.query<PostgresContentItemRow>(
         "SELECT * FROM content_items WHERE id = $1 LIMIT 1",

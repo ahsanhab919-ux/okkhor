@@ -8,6 +8,10 @@ import { ContentError } from "@/src/modules/content/domain/content-errors";
 import { ContentItemDetail } from "@/src/modules/content/ui/content-views";
 import { publicNavItems } from "@/src/modules/experience/site-content";
 import { Icon, PublicTopNav } from "@/src/modules/experience/ui";
+import { isItemSaved } from "@/src/modules/library/application/library-service";
+import { SaveItemButton } from "@/src/modules/library/ui/save-item-button";
+
+import { getLibraryViewer } from "../../library-session";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +32,10 @@ export default async function ContentDetailPage({ params }: ContentDetailPagePro
 
     throw error;
   });
+  // An optional viewer: anonymous readers still get the page, with a sign-in affordance instead of
+  // a save toggle (`library-slice.md` §8).
+  const viewer = await getLibraryViewer();
+  const initialSaved = viewer ? await isItemSaved(viewer.actor, item.id) : false;
 
   return (
     <div className="marketing-shell">
@@ -35,6 +43,8 @@ export default async function ContentDetailPage({ params }: ContentDetailPagePro
 
       <main className="page-shell">
         <ContentItemDetail item={item} />
+
+        <SaveItemButton authenticated={Boolean(viewer)} initialSaved={initialSaved} itemId={item.id} />
 
         <p>
           <Link className="inline-link inline-link--featured" href="/content">

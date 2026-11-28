@@ -24,6 +24,7 @@ At the current stage the deployed product is intentionally narrow:
 - a phone-first authentication surface (`/auth`)
 - two protected placeholders (`/community`, `/scholar-verify`)
 - a public research-comprehension read path (`/content`, `/content/[id]`)
+- a per-member "My Library" (`/library`) over saved research items
 - JSON APIs for identity and content, and a health probe
 
 Deeper domains named in `ADR-001` (Video Processing, Video Delivery, Search,
@@ -78,6 +79,7 @@ direction, and `docs/adr/ADR-001-adopt-modular-monolith.md` for the decision rec
                     │                   │  platform            │   │
                     │                   │  experience          │   │
                     │                   │  content             │   │
+                    │                   │  library             │   │
                     │                   └──────┬───────┬───────┘   │
                     └──────────────────────────┼───────┼───────────┘
                                                │       │
@@ -86,7 +88,8 @@ direction, and `docs/adr/ADR-001-adopt-modular-monolith.md` for the decision rec
                         │ auth_users,            │   │ rate-limit counters │
                         │ auth_sessions,         │   │ (degrades to memory)│
                         │ auth_password_resets,  │   └─────────────────────┘
-                        │ content_items          │
+                        │ content_items,         │
+                        │ saved_items            │
                         └────────────────────────┘
 ```
 
@@ -103,8 +106,9 @@ The driver-selection pattern is shared across both boundaries (see
 ## 6. Request Lifecycle
 
 1. **Edge middleware** (`middleware.ts`) runs for the protected matchers
-   (`/community/:path*`, `/scholar-verify/:path*`). It verifies the access-token cookie at
-   the edge and redirects to `/auth?next=…` when the token is missing or invalid.
+   (`/community/:path*`, `/scholar-verify/:path*`, `/library/:path*`). It verifies the
+   access-token cookie at the edge and redirects to `/auth?next=…` when the token is missing
+   or invalid.
 2. **Route handler** (`app/api/**/route.ts`) or **server component** (`app/**/page.tsx`)
    runs on the Node.js runtime.
 3. The handler/page calls into a **module's public surface** (for example
@@ -126,6 +130,7 @@ be enforced at server boundaries inside the monolith).
 | `platform` | `src/modules/platform/**` | Runtime status/highlights and the cross-cutting ephemeral store | Implemented |
 | `experience` | `src/modules/experience/**` | Public site content and presentational/UI building blocks | Implemented |
 | `content` | `src/modules/content/**` | Research-item comprehension: published list/detail read path | Implemented (read path) |
+| `library` | `src/modules/library/**` | Per-member saved research items ("My Library") | Implemented |
 
 Planned domains (Search, Recommendations, Localization, Analytics, Video, Rules
 Engine, Operational Intelligence) do not exist yet and must not be simulated ahead of a
