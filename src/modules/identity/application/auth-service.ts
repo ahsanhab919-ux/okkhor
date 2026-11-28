@@ -26,6 +26,7 @@ import type {
   PasswordResetRecord,
   UserProfile,
   UserRecord,
+  UserRole,
 } from "@/src/modules/identity/domain/auth-types";
 import { getAuthRepository } from "@/src/modules/identity/infrastructure/auth-repository";
 
@@ -159,6 +160,37 @@ export async function getSessionFromAccessToken(accessToken: string) {
     user: sanitizeUser(user),
     sessionId: payload.sessionId,
   };
+}
+
+/**
+ * Grants a role to a user through identity's public surface (see
+ * `scholar-verification-slice.md` §5.1). Only an administrator may grant a role, and the check
+ * is re-applied here so the privilege decision never rests solely on the caller. Idempotent —
+ * adding a role the user already holds is a no-op.
+ */
+export async function grantUserRole(
+  actor: { id: string; roles: UserRole[] },
+  userId: string,
+  role: UserRole,
+): Promise<UserProfile> {
+  if (!actor.roles.includes("admin")) {
+    throw new AuthError("Only administrators can grant roles.", "AUTH_FORBIDDEN", 403);
+  }
+
+  const repository = getAuthRepository();
+  const user = await repository.getUserById(userId);
+
+  if (!user) {
+    throw new AuthError("Authenticated user no longer exists.", "AUTH_UNAUTHORIZED", 401);
+  }
+
+  if (!user.roles.includes(role)) {
+    user.roles = [...user.roles, role];
+    user.updatedAt = new Date().toISOString();
+    await repository.updateUser(user);
+  }
+
+  return sanitizeUser(user);
 }
 
 export async function refreshUserSession(refreshToken: string): Promise<AuthSuccess> {

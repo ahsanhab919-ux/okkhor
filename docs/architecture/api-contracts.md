@@ -28,12 +28,15 @@ route files.
 
   Unhandled failures return `{ "error": { "code": "AUTH_UNKNOWN", "message": "Unexpected authentication failure." } }`
   with status `500`. The content endpoints reuse the same envelope with their own `CONTENT_*`
-  codes (see §4.9–§4.12 and §6).
+  codes (see §4.9–§4.12 and §6) and the verification endpoints with their own `VERIFICATION_*`
+  codes (see §4.13–§4.18 and §6).
 - **Validation:** request bodies are validated with Zod schemas in
   `src/modules/identity/domain/auth-schemas.ts`. The first validation issue message becomes
   the `AUTH_VALIDATION_FAILED` message (`400`). Content writes use
   `src/modules/content/domain/content-schemas.ts`, where the same rule yields
-  `CONTENT_VALIDATION_FAILED` (`400`).
+  `CONTENT_VALIDATION_FAILED` (`400`); verification writes use
+  `src/modules/verification/domain/verification-schemas.ts`, yielding
+  `VERIFICATION_VALIDATION_FAILED` (`400`).
 
 ## 3. Cookie Contract
 
@@ -239,6 +242,95 @@ authenticated session with an author role (`scholar` or `admin`).
 
 The read endpoints (§4.9, §4.10) are unchanged and stay public.
 
+### 4.13 `GET /api/verification/application`
+
+Return the caller's own scholar-verification application. Requires an authenticated session
+(any role). See [scholar-verification-slice.md](scholar-verification-slice.md).
+
+- **Request:** no body. Uses `okkhor_access`.
+- **Success** `200`: `{ "application": { "…ScholarVerification…" } }`, or
+  `{ "application": null }` when the caller has not started an application.
+- **Errors:** `AUTH_UNAUTHORIZED` (401 — no/invalid session), `VERIFICATION_UNKNOWN` (500).
+
+### 4.14 `POST /api/verification/application`
+
+Create the caller's application (a draft, or directly submitted when `status: "submitted"`).
+One application per user.
+
+- **Request**
+
+  ```json
+  {
+    "displayName": "Dr. Nadia Islam",
+    "degrees": [{ "degreeType": "PhD", "institution": "University of Dhaka", "year": "2018" }],
+    "affiliations": [{ "role": "Associate Professor", "organization": "CRMH", "since": "2021" }],
+    "portfolio": "…",
+    "specializations": ["history of science"],
+    "languages": ["bn", "en"],
+    "status": "draft"
+  }
+  ```
+
+  Every field is optional; `status` accepts only `draft | submitted` (default `draft`).
+  Submitting requires a display name, at least one degree, and a portfolio.
+- **Success** `201`: `{ "application": { "…ScholarVerification…" } }`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `VERIFICATION_VALIDATION_FAILED` (400 — bad body or an
+  incomplete submission), `VERIFICATION_CONFLICT` (409 — an application already exists),
+  `VERIFICATION_UNKNOWN` (500).
+
+### 4.15 `PATCH /api/verification/application`
+
+Edit the caller's draft (or edit and resubmit a rejected one), or submit it
+(`status: "submitted"`). Carries the `updatedAt` the client last read as the
+optimistic-concurrency token.
+
+- **Request:** any subset of the create fields, plus `updatedAt`.
+
+  ```json
+  { "portfolio": "…", "status": "submitted", "updatedAt": "2026-11-28T10:00:00.000Z" }
+  ```
+
+- **Success** `200`: `{ "application": { "…ScholarVerification…" } }`. Any applicant write
+  clears a previous review (`reviewNote`/`reviewedBy`/`reviewedAt`); a transition to
+  `submitted` stamps `submittedAt`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `VERIFICATION_APPLICATION_NOT_FOUND` (404 — the caller
+  has no application), `VERIFICATION_VALIDATION_FAILED` (400), `VERIFICATION_CONFLICT` (409 —
+  the application is submitted/approved, or `updatedAt` did not match), `VERIFICATION_UNKNOWN`
+  (500).
+
+### 4.16 `GET /api/verification/applications`
+
+The review queue. Requires an authenticated session with the `admin` role.
+
+- **Query:** `?status=` — optional filter, one of `draft | submitted | approved | rejected`.
+- **Success** `200`: `{ "applications": [ { "…ScholarVerification…" } ] }`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `VERIFICATION_FORBIDDEN` (403 — authenticated
+  non-admin), `VERIFICATION_VALIDATION_FAILED` (400 — unknown status filter),
+  `VERIFICATION_UNKNOWN` (500).
+
+### 4.17 `GET /api/verification/applications/[id]`
+
+Fetch one application for review. Requires the `admin` role.
+
+- **Success** `200`: `{ "application": { "…ScholarVerification…" } }`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `VERIFICATION_FORBIDDEN` (403),
+  `VERIFICATION_APPLICATION_NOT_FOUND` (404), `VERIFICATION_UNKNOWN` (500).
+
+### 4.18 `PATCH /api/verification/applications/[id]`
+
+Approve or reject a submitted application. Requires the `admin` role.
+
+- **Request:** `{ "status": "approved" | "rejected", "reviewNote": "…", "updatedAt": "…" }`.
+  `reviewNote` and `updatedAt` are optional; `status` is required.
+- **Success** `200`: `{ "application": { "…ScholarVerification…" } }`. The reviewer and time are
+  stamped (`reviewedBy`, `reviewedAt`). **On approval the route grants the applicant the
+  `scholar` role** by calling identity's `grantUserRole` (the composition root in `app/**`);
+  the grant is idempotent.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `VERIFICATION_FORBIDDEN` (403),
+  `VERIFICATION_VALIDATION_FAILED` (400), `VERIFICATION_APPLICATION_NOT_FOUND` (404),
+  `VERIFICATION_CONFLICT` (409 — the application is not `submitted`, or `updatedAt` did not
+  match), `VERIFICATION_UNKNOWN` (500).
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -267,6 +359,7 @@ request). See [data-models.md](data-models.md) §5.2 and `docs/configuration.md`
 | `AUTH_TOKEN_INVALID` | 401 | Refresh token invalid |
 | `AUTH_TOKEN_EXPIRED` | 401 | Token expired |
 | `AUTH_RESET_INVALID` | 400 | Reset token unknown, used, or expired |
+| `AUTH_FORBIDDEN` | 403 | Authenticated user lacks the required role (e.g. a non-admin role grant) |
 | `AUTH_RATE_LIMITED` | 429 | Rate-limit budget exceeded |
 | `AUTH_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
@@ -285,17 +378,32 @@ The content endpoints use a parallel set of codes, whose executable source of tr
 | `CONTENT_CONFLICT` | 409 | `updatedAt` did not match the stored version (stale write) |
 | `CONTENT_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
+The verification endpoints use a parallel set of codes, whose executable source of truth is
+`src/modules/verification/domain/verification-errors.ts`:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `VERIFICATION_VALIDATION_FAILED` | 400 | Request body failed schema validation, or an incomplete submission |
+| `VERIFICATION_FORBIDDEN` | 403 | Authenticated user does not hold the `admin` role |
+| `VERIFICATION_APPLICATION_NOT_FOUND` | 404 | The caller has no application, or the id is unknown |
+| `VERIFICATION_CONFLICT` | 409 | Duplicate application, a non-editable/non-reviewable state, or a stale write |
+| `VERIFICATION_UNKNOWN` | 500 | Unhandled failure (fallback) |
+
 ## 7. Route Protection (non-API)
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
 
-- matchers: `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`
+- matchers: `/community/:path*`, `/scholar-verify/:path*`, `/studio/:path*`, `/admin/:path*`
 - behaviour: verify `okkhor_access` at the edge; on missing/invalid token redirect to
   `/auth?next=<original-path>`.
 
 `/studio` is additionally gated server-side by role: the layout resolves the session and
 renders the authoring UI only for `scholar`/`admin`, otherwise a restricted notice
 (see [content-authoring-slice.md](content-authoring-slice.md) §7).
+
+`/admin/verifications` is likewise gated server-side by role: the layout renders the review
+queue only for `admin`, otherwise a restricted notice (see
+[scholar-verification-slice.md](scholar-verification-slice.md)).
 
 The `/content` and `/content/[id]` pages are **not** gated: the read path is intentionally
 public (see `content-comprehension-slice.md`).

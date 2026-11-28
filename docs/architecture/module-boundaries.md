@@ -131,15 +131,39 @@ Postgres pool config and on nothing else at module level; it does not import `id
 is the second fully-layered module after `identity` and should be read alongside it when
 adding a new domain.
 
+### 5.5 `verification` — implemented, fully layered
+
+```
+src/modules/verification/
+  domain/         verification-types.ts, verification-errors.ts,
+                  verification-schemas.ts, verification-authorization.ts,
+                  verification-state.ts
+  application/    verification-service.ts   (save/submit/decide use cases)
+  infrastructure/ verification-repository.ts (driver selector)
+                  verification-store.ts        (in-memory repository)
+                  postgres-verification-repository.ts
+  api/            verification-http.ts       (response + error shaping)
+  ui/             verification-form.tsx       (applicant island)
+                  verification-review.tsx     (admin decision island)
+```
+
+`verification` owns the scholar-verification application and its review state machine. Like
+`content`, it depends on `platform` for the shared Postgres pool config and does not import
+`identity`; the role *grant* on approval is performed by the composition root (`app/**`)
+calling identity's `grantUserRole` public surface.
+
 ## 6. Cross-Module Rules
 
 Current dependency edges (verified in code):
 
-- `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, and `content`.
+- `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, `content`, and
+  `verification`.
 - `identity` depends on `platform` for the ephemeral store (`auth-rate-limit.ts` imports
   `getEphemeralStore`).
 - `content` depends on `platform` for the shared Postgres pool config
   (`postgres-content-repository.ts` imports `getPostgresPoolConfig`).
+- `verification` depends on `platform` for the shared Postgres pool config
+  (`postgres-verification-repository.ts` imports `getPostgresPoolConfig`).
 - `experience` imports `identity` **types only** (`UserProfile`) for presentational props.
 
 Rules that follow:
