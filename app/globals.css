@@ -3660,3 +3660,79 @@ a.tab-row__tab--active {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* The system configuration surface — the Stitch "System Settings" idiom: a bento of panels over the
+   configuration the process resolves. It is read-only: the platform persists no editable settings,
+   so every value is read from the running configuration rather than stored. */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.config-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-container);
+}
+
+.config-panel__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.config-panel__hint {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.85rem;
+}
+
+.config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.config-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.config-row dt {
+  color: var(--color-on-surface-variant);
+  font-size: 0.85rem;
+}
+
+.config-row dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.config-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-on-surface-variant);
+  font-size: 0.85rem;
+}
+
+.config-note {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.85rem;
+}

@@ -39,6 +39,9 @@ At the current stage the deployed product is intentionally narrow:
   by topic, visible threads by category, and applications by status
 - an administrator member roster (`/admin/users`) over the identity record — every member, the roles
   they hold, and when they last signed in, projected without contact points or credentials
+- an administrator system configuration surface (`/admin/settings`) that reports the configuration
+  the process resolves — the runtime status, the session and reset-code lifetimes, and the auth
+  attempt budgets — and edits nothing, because the platform persists no settings
 - browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
   and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe
