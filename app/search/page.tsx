@@ -80,7 +80,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const initial: SearchFormValues = { q, kind, tag, category, author, sort };
 
   return (
-    <div>
+    <div className="search-page">
+      <section className="archive-hero">
+        <h1 className="archive-hero__title">Deep Archive Explorer</h1>
+        <p className="archive-hero__lead">
+          Search published research and community threads across the Okkhor corpus.
+        </p>
+      </section>
+
       <SearchForm authors={authorOptions} initial={initial} />
 
       {errorMessage ? (
@@ -90,14 +97,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       ) : null}
 
       {q ? (
-        <section>
-          <div className="community-hero">
-            <div>
-              <h2>Results</h2>
-              <p>
-                {total} {total === 1 ? "match" : "matches"} for &ldquo;{q}&rdquo;.
-              </p>
-            </div>
+        <section className="search-results-section">
+          <div className="search-results-head">
+            <h2>Results</h2>
+            <span className="search-results-head__count">
+              {total} {total === 1 ? "match" : "matches"}
+            </span>
+            <span className="search-results-head__query">for &ldquo;{q}&rdquo;</span>
           </div>
 
           <SearchResults authorNames={authorNames} hits={hits} />

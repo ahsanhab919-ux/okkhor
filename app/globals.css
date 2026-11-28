@@ -2594,3 +2594,140 @@ code {
     padding: 18px;
   }
 }
+
+/* Search — the Stitch "Deep Archive Explorer": a hero, a filter panel, then a dense result grid
+   that reuses the hub card. Only real hit fields are rendered. */
+.search-page {
+  display: grid;
+  gap: 28px;
+}
+
+.archive-hero {
+  display: grid;
+  gap: 8px;
+}
+
+.archive-hero__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 15px rgba(173, 198, 255, 0.3);
+}
+
+.archive-hero__lead {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+}
+
+.filter-panel {
+  display: grid;
+  gap: 24px;
+  padding: 32px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-container);
+  box-shadow: var(--shadow-panel);
+}
+
+.filter-panel__head h2 {
+  margin: 0 0 6px;
+  font-family: var(--font-headline);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.filter-panel__head p {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+}
+
+.filter-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.filter-panel__query input {
+  font-family: var(--font-headline);
+  font-size: 1.05rem;
+}
+
+.filter-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.search-results-section {
+  display: grid;
+  gap: 18px;
+}
+
+.search-results-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.search-results-head h2 {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.search-results-head__count {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--color-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.search-results-head__query {
+  color: var(--color-outline);
+  font-size: 0.9rem;
+}
+
+.search-results {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  align-items: start;
+}
+
+.result-card .discussion-card__meta span:last-child {
+  color: var(--color-on-surface);
+}
+
+.result-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-line);
+}
+
+.result-card__author {
+  color: var(--color-outline);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .filter-panel {
+    padding: 22px;
+  }
+
+  .filter-panel__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .search-results {
+    grid-template-columns: 1fr;
+  }
+}

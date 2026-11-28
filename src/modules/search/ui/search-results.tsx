@@ -8,24 +8,30 @@ type SearchResultsProps = {
   authorNames: Record<string, string>;
 };
 
+/**
+ * The result card grid, aligned to the Stitch "Deep Archive Explorer": a dense multi-column grid
+ * of bordered cards carrying a kind badge, tag chips, the excerpt, and a footer byline. Only real
+ * hit fields are shown — there are no archive scores or era chips, so none are invented.
+ */
 export function SearchResults({ hits, authorNames }: SearchResultsProps) {
   if (hits.length === 0) {
     return <p>No results matched your search.</p>;
   }
 
   return (
-    <section className="discussion-list">
+    <section className="discussion-list search-results">
       {hits.map((hit) => (
-        <article key={`${hit.kind}-${hit.id}`} className="discussion-card">
+        <article key={`${hit.kind}-${hit.id}`} className="discussion-card result-card">
           <div className="discussion-card__body">
             <div className="discussion-card__meta">
-              <span className="pill">{hit.kind === "research" ? "Research" : "Community"}</span>
+              <span className="discussion-card__badge">
+                {hit.kind === "research" ? "Research" : "Community"}
+              </span>
               {hit.tags.map((tag) => (
                 <span key={tag} className="pill">
                   {tag}
                 </span>
               ))}
-              <span>{hit.createdAt.slice(0, 10)}</span>
             </div>
 
             <h3>
@@ -36,7 +42,16 @@ export function SearchResults({ hits, authorNames }: SearchResultsProps) {
 
             <p>{hit.excerpt}</p>
 
-            {hit.authorId ? <p className="search-hit__author">by {authorNames[hit.authorId] ?? "Unknown author"}</p> : null}
+            <div className="result-card__footer">
+              {hit.authorId ? (
+                <span className="result-card__author">
+                  by {authorNames[hit.authorId] ?? "Unknown author"}
+                </span>
+              ) : (
+                <span />
+              )}
+              <span className="discussion-card__ago">{hit.createdAt.slice(0, 10)}</span>
+            </div>
           </div>
         </article>
       ))}
