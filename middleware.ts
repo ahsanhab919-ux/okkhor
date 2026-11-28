@@ -37,6 +37,7 @@ export const config = {
     "/studio/:path*",
     "/admin/:path*",
     "/library/:path*",
+    "/notifications/:path*",
     "/profile/:path*",
   ],
 };

@@ -9,6 +9,7 @@ import { authErrorResponse } from "@/src/modules/identity/api/auth-http";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
 
 import { resolveCommunityActor } from "../../../community-actor";
+import { notifyThreadModeration } from "../../../notify-moderation";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const { id } = await context.params;
     const body = await request.json();
     const thread = await moderateThread(actor, id, body);
+
+    await notifyThreadModeration(actor.id, body.action, thread);
 
     return communityJson({ thread });
   } catch (error) {

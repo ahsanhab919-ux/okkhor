@@ -34,7 +34,7 @@ import type {
   UserRole,
 } from "@/src/modules/identity/domain/auth-types";
 import { getAuthRepository } from "@/src/modules/identity/infrastructure/auth-repository";
-import type { NotificationChannel, NotificationMessage } from "@/src/modules/platform/domain/notification-types";
+import type { NotificationChannel, NotificationDestination, NotificationMessage } from "@/src/modules/platform/domain/notification-types";
 import { getNotificationChannels } from "@/src/modules/platform/infrastructure/notification-channel";
 
 const PASSWORD_SALT_ROUNDS = 12;
@@ -403,4 +403,20 @@ export async function setEmail(actor: { id: string }, input: ProfileEmailUpdateI
   await repository.updateUser(user);
 
   return sanitizeUser(user);
+}
+
+/**
+ * Resolves a member's contact points for outbound delivery through identity's public surface, or
+ * `undefined` when no such member exists. Returns **only** the two contact points — never the
+ * password metadata or roles — so the composition root can pass plain delivery data to the
+ * notifications module without that module reaching into identity (`notifications-slice.md` §5, §8).
+ */
+export async function getNotificationDestinationById(id: string): Promise<NotificationDestination | undefined> {
+  const user = await getAuthRepository().getUserById(id);
+
+  if (!user) {
+    return undefined;
+  }
+
+  return { phoneNumber: user.phoneNumber, email: user.email };
 }

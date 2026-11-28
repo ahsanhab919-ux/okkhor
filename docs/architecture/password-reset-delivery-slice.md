@@ -119,7 +119,8 @@ Acceptance criteria:
   handle). `ADR-009` keeps phone number the primary identifier
 - **a general-purpose notification service** for other domains (verification decisions, moderation
   notices, reply notifications) — the port is built to be reusable, but only password reset consumes it
-  in this slice
+  in this slice (**partly resolved** by the [notifications slice](notifications-slice.md), which reuses
+  the same port for moderation and report outcomes; verification-decision notices remain unbuilt)
 - **delivery receipts, retries, or a delivery-status table** — each send is fire-and-forget with a
   server-side log; no new persistence
 - **vendor-specific SMS/email SDKs** — the concrete providers are generic HTTPS gateway calls so any
@@ -345,7 +346,9 @@ limit), and `ADR-009` (phone-first → SMS primary, email secondary) plus the al
 
 1. **Scope — password-reset delivery on a reusable port.** Deliver this slice's target (password reset)
    and build the channel as a generic `platform` port for later reuse, rather than a broad notification
-   system now.
+   system now. (The "only password reset consumes the port" limitation is **partly resolved** by the
+   [notifications slice](notifications-slice.md), which reuses the same port for moderation and report
+   outcomes; reply and verification notifications remain deferred.)
 2. **Channels — SMS *and* email.** SMS is the primary channel (phone-first, `ADR-009`) and is always sent
    to the account phone; email is sent as well whenever the account has an email. Both are wired in this
    slice.

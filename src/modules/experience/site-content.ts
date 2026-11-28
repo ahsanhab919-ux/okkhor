@@ -24,6 +24,7 @@ export const publicNavItems: NavItem[] = [
   { label: "Scholars", href: "/scholar-verify" },
   { label: "Community", href: "/community" },
   { label: "My Library", href: "/library" },
+  { label: "Notifications", href: "/notifications" },
   { label: "Profile", href: "/profile" },
 ];
 
