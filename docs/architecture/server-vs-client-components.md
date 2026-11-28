@@ -65,6 +65,8 @@ Exactly these files carry `"use client"` (the interactive islands):
 | `src/modules/identity/ui/protected-workspace-shell.tsx` | session restore effect, `useRouter`/`usePathname`, logout handler | gates protected pages from the client side |
 | `src/modules/verification/ui/verification-form.tsx` | applicant form `useState`, draft/submit handlers, `useRouter` | drives `POST`/`PATCH /api/verification/application` |
 | `src/modules/verification/ui/verification-review.tsx` | admin decision `useState`, approve/reject handlers, `useRouter` | drives `PATCH /api/verification/applications/[id]` |
+| `src/modules/community/ui/thread-form.tsx` | create-thread form `useState`, submit handler, `useRouter` | drives `POST /api/community/threads` |
+| `src/modules/community/ui/reply-form.tsx` | reply form `useState`, submit handler, `router.refresh()` | drives `POST /api/community/threads/[id]/replies` |
 
 `src/modules/identity/client/session-client.ts` is also `"use client"` but is a **helper
 module**, not a component: it wraps `fetch` against the auth API with
@@ -81,6 +83,11 @@ so the read path needs no JavaScript at all.
 The `verification` module adds **two** islands — the applicant form and the admin decision
 form. Both pages are server components that resolve the session and application state and
 pass it down as props; the islands own only local form state and post to the verification API.
+
+The `community` module adds **two** islands — the create-thread form (`thread-form.tsx`) and the
+reply form (`reply-form.tsx`). The list, thread, and new pages are server components that load
+their data server-side; each island owns only its local form state and posts to the community
+API, then navigates (`thread-form`) or refreshes (`reply-form`) on success.
 
 ## 6. Import Graph Nuance
 
