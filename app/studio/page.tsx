@@ -11,15 +11,19 @@ export default async function StudioPage() {
 
   return (
     <section className="content-band">
-      <div className="section-heading">
+      <header className="studio-hero">
         <div>
           <p className="eyebrow eyebrow--blue">Authoring</p>
-          <h1>Research Studio</h1>
+          <h1 className="studio-hero__title">Research Studio</h1>
+          <p className="studio-hero__lead">
+            Draft, refine, and publish Bangla research summaries. A draft stays private until you publish it
+            to the archive.
+          </p>
         </div>
         <Link className="button button--primary" href="/studio/new">
           New item
         </Link>
-      </div>
+      </header>
 
       {items.length === 0 ? (
         <p>No research items yet. Create the first draft to get started.</p>

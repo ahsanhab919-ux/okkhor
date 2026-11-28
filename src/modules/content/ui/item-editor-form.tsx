@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
 import type { ResearchItem } from "@/src/modules/content/domain/content-types";
+import { Icon } from "@/src/modules/experience/ui";
 
 type ItemEditorFormProps = {
   item?: ResearchItem;
@@ -110,30 +111,38 @@ export function ItemEditorForm({ item }: ItemEditorFormProps) {
 
   if (aiSummaryEn) {
     return (
-      <div className="form-panel">
-        <div className="form-panel__header">
-          <div>
-            <h2>AI English summary (preview, not saved)</h2>
-            <p>The Bangla summary was generated and saved with the published item.</p>
+      <div className="item-editor">
+        <div className="form-panel">
+          <div className="form-panel__header">
+            <div>
+              <h2>
+                <Icon name="spark" />
+                AI English summary (preview, not saved)
+              </h2>
+              <p>The Bangla summary was generated and saved with the published item.</p>
+            </div>
           </div>
-        </div>
 
-        <p lang="en">{aiSummaryEn}</p>
+          <p lang="en">{aiSummaryEn}</p>
 
-        <div className="verification-actions">
-          <button className="button button--primary button--large" onClick={goToStudio} type="button">
-            Continue to studio
-          </button>
+          <div className="verification-actions">
+            <button className="button button--primary button--large" onClick={goToStudio} type="button">
+              Continue to studio
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <form className="form-panel" onSubmit={handleSubmit}>
+    <form className="item-editor form-panel" onSubmit={handleSubmit}>
       <div className="form-panel__header">
         <div>
-          <h2>{item ? "Edit research item" : "New research item"}</h2>
+          <h2>
+            <Icon name="book" />
+            {item ? "Edit research item" : "New research item"}
+          </h2>
           <p>Drafts stay private until you publish them to the research archive.</p>
         </div>
       </div>
