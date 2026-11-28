@@ -20,6 +20,7 @@ type PostgresUserRow = {
   last_login_at: string | null;
   password_updated_at: string;
   password_hash: string;
+  email: string | null;
 };
 
 type PostgresSessionRow = {
@@ -57,6 +58,7 @@ function mapUserRow(row: PostgresUserRow): UserRecord {
     lastLoginAt: row.last_login_at || undefined,
     passwordUpdatedAt: row.password_updated_at,
     passwordHash: row.password_hash,
+    email: row.email || undefined,
   };
 }
 
@@ -127,8 +129,9 @@ function createPostgresAuthRepository(pool: Pool): AuthRepository {
             updated_at,
             last_login_at,
             password_updated_at,
-            password_hash
-          ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)
+            password_hash,
+            email
+          ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11)
         `,
         [
           user.id,
@@ -141,6 +144,7 @@ function createPostgresAuthRepository(pool: Pool): AuthRepository {
           user.lastLoginAt ?? null,
           user.passwordUpdatedAt,
           user.passwordHash,
+          user.email ?? null,
         ],
       );
     },
@@ -156,7 +160,8 @@ function createPostgresAuthRepository(pool: Pool): AuthRepository {
               updated_at = $7,
               last_login_at = $8,
               password_updated_at = $9,
-              password_hash = $10
+              password_hash = $10,
+              email = $11
           WHERE id = $1
         `,
         [
@@ -170,6 +175,7 @@ function createPostgresAuthRepository(pool: Pool): AuthRepository {
           user.lastLoginAt ?? null,
           user.passwordUpdatedAt,
           user.passwordHash,
+          user.email ?? null,
         ],
       );
     },

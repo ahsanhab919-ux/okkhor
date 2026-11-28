@@ -31,6 +31,7 @@ The publicly safe view of a user (no secrets).
 | --- | --- | --- |
 | `id` | `string` | UUID, primary key |
 | `phoneNumber` | `string` | Normalized `+880…`, unique |
+| `email` | `string`, optional | Secondary recovery contact (password reset); **not unique**, never in `PublicProfile` |
 | `displayName` | `string` | 2–80 chars |
 | `locale` | `string` | Defaults to `bn-BD` |
 | `roles` | `("learner" \| "scholar" \| "admin")[]` | Defaults to `["learner"]` |
@@ -41,8 +42,11 @@ The publicly safe view of a user (no secrets).
 
 The profile read surface exports `PublicProfile = { id, displayName, roles, createdAt }` (via
 `getPublicProfile` in `auth-service.ts`): the identity fields a member profile may show. It
-never carries `phoneNumber`, `passwordHash`, or `passwordUpdatedAt`, so a profile page cannot
-leak a member's contact details (see [member-profile-slice.md](member-profile-slice.md) §7).
+never carries `phoneNumber`, `email`, `passwordHash`, or `passwordUpdatedAt`, so a profile page
+cannot leak a member's contact details (see [member-profile-slice.md](member-profile-slice.md) §7,
+[password-reset-delivery-slice.md](password-reset-delivery-slice.md) §5). The `email` is captured
+optionally at registration and is editable by its owner through `PATCH /api/auth/profile`
+(§3.1, §6).
 
 ### 2.2 `UserRecord = UserProfile & { passwordHash: string }`
 
@@ -66,10 +70,16 @@ strips it before any value is returned to a route or a client.
 | --- | --- | --- |
 | `id` | `string` | UUID |
 | `userId` | `string` | FK → `auth_users.id` |
-| `tokenHash` | `string` | SHA-256 of the reset token, unique |
+| `tokenHash` | `string` | SHA-256 of the reset code, unique |
 | `createdAt` | `string` (ISO) | |
 | `expiresAt` | `string` (ISO) | |
 | `usedAt` | `string` (ISO), optional | Set on successful confirm |
+
+The record shape is unchanged by the password-reset-delivery slice: `tokenHash` is still the
+SHA-256 hash of the token, but the plaintext that is hashed is now the **6-digit numeric reset
+code** (not a 48-character hex string), so it is typeable on a phone
+([password-reset-delivery-slice.md](password-reset-delivery-slice.md) §5, §9). The record stays
+single-use (`usedAt`) and time-boxed (`PASSWORD_RESET_MAX_AGE_SECONDS`).
 
 ### 2.5 Token claim types
 
@@ -283,6 +293,23 @@ stores **no item content** — it imports content **types only** where it must n
 hydration and the published-item check happen at the composition root (§8 of
 [library-slice.md](library-slice.md)).
 
+### 2.12 Notification types (platform)
+
+The cross-cutting notification contract — the port `identity` delivers password-reset codes
+through. These types are **derived** — the module has no store. Defined in
+`src/modules/platform/domain/notification-types.ts`.
+
+`NotificationDestination` = `{ phoneNumber: string; email?: string }` — the recipient's contact
+points.
+
+`NotificationMessage` = `{ destination; subject; body }` — the plain message a channel sends.
+
+`NotificationChannel` = `{ kind: "sms" | "email" | "log"; send(message: NotificationMessage):
+Promise<void> }` — a channel skips itself when its required contact point is missing (the email
+channel needs `destination.email`). The port is deliberately identity-agnostic (it carries only
+contact points and text), so it can serve a future verification or moderation notification without
+a new abstraction ([module-boundaries.md](module-boundaries.md) §5.2).
+
 ## 3. PostgreSQL Schema
 
 The `auth_*` tables (§3.1–§3.3) are created by
@@ -299,7 +326,9 @@ and `scholar_verifications` (§3.5) by
 community moderation columns (§3.6–§3.7) by
 `migrations/20261128160000_add_community_moderation.cjs` (see `community-moderation-slice.md`);
 and the two topic-browse indexes (§3.4, §3.6) by
-`migrations/20261128170000_add_topic_browse_indexes.cjs` (see `topic-browse-slice.md`).
+`migrations/20261128170000_add_topic_browse_indexes.cjs` (see `topic-browse-slice.md`); and the
+nullable `auth_users.email` column (§3.1) by
+`migrations/20261128180000_add_user_email.cjs` (see `password-reset-delivery-slice.md`).
 Timestamps are stored as ISO-8601
 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
 portability is preferred over database-side timezone arithmetic; `roles`, `tags`, `degrees`,
@@ -311,6 +340,7 @@ portability is preferred over database-side timezone arithmetic; `roles`, `tags`
 | --- | --- | --- |
 | `id` | `text` | primary key |
 | `phone_number` | `text` | not null, **unique** |
+| `email` | `text` | nullable (added by `20261128180000_add_user_email.cjs`) |
 | `display_name` | `text` | not null |
 | `locale` | `text` | not null |
 | `roles` | `jsonb` | not null |
@@ -487,7 +517,8 @@ author indexes (`community_threads_author_id_created_at_idx` then
 migration's `down` drops the reply moderation columns before the thread moderation columns;
 the topic-browse migration's `down` drops both browse indexes
 (`community_threads_category_created_at_idx` then `content_items_tags_gin_idx`) and touches no
-table.
+table; and the email migration's `down` drops the `email` column from `auth_users` and touches no
+other column.
 
 ## 4. In-Memory Store
 
@@ -746,19 +777,47 @@ Both implementations satisfy the `LibraryRepository` interface. Application code
 `saveItem` issues `INSERT … ON CONFLICT (user_id, item_id) DO NOTHING RETURNING …` and falls
 back to a `SELECT` for the stored row when the insert was a no-op (the idempotent re-save).
 
+### 5.10 Notification channels (platform)
+
+`src/modules/platform/infrastructure/notification-channel.ts` is the single decision point for the
+cross-cutting notification port, using its own driver variable and mirroring the summarization
+selector (§5.8):
+
+```
+NOTIFICATION_CHANNEL_DRIVER = auto | log | sms | email | sms+email   (default: auto)
+  log        → the dev/test channel (records the message, no network)
+  sms        → the SMS gateway channel
+  email      → the email gateway channel
+  sms+email  → both gateway channels
+  auto       → NODE_ENV === "test"                     → [log]
+               else every channel whose gateway URL is set → [sms?, email?]
+               else NODE_ENV !== "production"           → [log]
+               else                                     → []  (no channels)
+```
+
+The selector returns the resolved `NotificationChannel[]`; the identity use case
+(`requestPasswordReset`) sends through all of them with per-channel failure isolation. Unlike the
+storage drivers, the notification channels have **no repository and no store** — the `log` channel
+records the last message on `globalThis` (with a `reset…ForTesting()` hook) purely so tests can
+assert delivery without a network call. Each gateway channel POSTs a small JSON body with a bearer
+header and aborts on its timeout (`NOTIFICATION_*_TIMEOUT_MS`), reading its credentials only in
+`infrastructure` ([configuration.md](../configuration.md)).
+
 ## 6. Data Classification and Handling
 
 | Data | Classification | Handling rule |
 | --- | --- | --- |
 | `password_hash` | secret | bcryptjs, 12 salt rounds; never returned |
 | `refresh_token_hash` | secret-derived | SHA-256; raw token only in the cookie |
-| `token_hash` (reset) | secret-derived | SHA-256; raw token only in the handoff preview |
+| `token_hash` (reset) | secret-derived | SHA-256 of the 6-digit code; the plaintext exists only in the delivery call (and the dev-only `log` preview) |
 | `phone_number` | personal | Stored normalized; hashed before use in any rate-limit key |
+| `email` | personal | Stored as-is; a secondary recovery contact, returned only to its owner, never in `PublicProfile` |
 | Rate-limit identifiers | personal | SHA-256 before entering the keyspace |
 
-Raw refresh/reset tokens and passwords are never written to durable storage, logs, or
-response bodies (except the documented reset-token preview, which is a temporary handoff
-until a delivery channel exists).
+Raw refresh/reset codes and passwords are never written to durable storage, logs, or response
+bodies; the reset code is delivered out of band (SMS, and email when one is on file), and the
+`resetTokenPreview` appears **only** under the dev/test `log` channel outside production
+([password-reset-delivery-slice.md](password-reset-delivery-slice.md) §7).
 
 ## 7. Lifecycle and Retention
 
@@ -805,6 +864,9 @@ Automatic retention jobs are future work, not a current behaviour.
 - `migrations/20261128130000_create_saved_items.cjs` — `saved_items` schema of record
 - `migrations/20261128140000_add_member_author_indexes.cjs` — member-author indexes for the profile reads
 - `migrations/20261128170000_add_topic_browse_indexes.cjs` — GIN tag index on `content_items` and category index on `community_threads` for the browse reads
+- `migrations/20261128180000_add_user_email.cjs` — nullable `email` column on `auth_users`
+- `src/modules/platform/domain/notification-types.ts` — the notification port types
+- `src/modules/platform/infrastructure/notification-channel.ts` — the notification-channel driver selector
 - `src/modules/library/domain/library-types.ts` — library domain types
 - `src/modules/library/infrastructure/library-store.ts` — in-memory library store
 - `src/modules/library/infrastructure/postgres-library-repository.ts` — library SQL implementation

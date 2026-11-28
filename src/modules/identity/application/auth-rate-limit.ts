@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { PASSWORD_RESET_MAX_AGE_SECONDS } from "@/src/modules/identity/domain/auth-config";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
 import { getEphemeralStore } from "@/src/modules/platform/infrastructure/ephemeral-store";
 
@@ -15,6 +16,14 @@ export const AUTH_RATE_LIMITS = {
     keyPrefix: "okkhor:ratelimit:auth:password-reset",
     limit: 5,
     windowSeconds: 3600,
+  },
+  // The short 6-digit reset code needs a brute-force floor; the window matches the code lifetime
+  // (PASSWORD_RESET_MAX_AGE_SECONDS), so a code cannot be exhausted inside its validity
+  // (`password-reset-delivery-slice.md` §7, §9).
+  passwordResetConfirm: {
+    keyPrefix: "okkhor:ratelimit:auth:password-reset-confirm",
+    limit: 10,
+    windowSeconds: PASSWORD_RESET_MAX_AGE_SECONDS,
   },
 } as const;
 

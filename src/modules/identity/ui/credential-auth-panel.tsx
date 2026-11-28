@@ -48,6 +48,7 @@ export function CredentialAuthPanel({
   const [mode, setMode] = useState<CredentialMode>("login");
   const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber || "01712345678");
   const [displayName, setDisplayName] = useState("Ahsan Habib");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("Okkhor2026");
   const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("Okkhor3030");
@@ -124,6 +125,7 @@ export function CredentialAuthPanel({
         password,
         locale: "bn-BD",
         roles: ["learner"],
+        email: email.trim(),
       });
       setStatusTone("success");
       setStatusMessage("Registration successful. Redirecting to the protected experience.");
@@ -147,7 +149,11 @@ export function CredentialAuthPanel({
       };
       setResetToken(payload.resetTokenPreview || "");
       setStatusTone("success");
-      setStatusMessage(payload.message || "Password reset issued.");
+      setStatusMessage(
+        payload.resetTokenPreview
+          ? "Reset code issued for this development environment. Enter it below with a new password."
+          : "If the account exists, we sent a 6-digit code to the phone number on file and any email on the account. Enter it below with a new password.",
+      );
     } catch (error) {
       setStatusTone("error");
       setStatusMessage(error instanceof Error ? error.message : "Password reset request failed.");
@@ -258,6 +264,19 @@ export function CredentialAuthPanel({
           </label>
         ) : null}
 
+        {mode === "register" ? (
+          <label className="field">
+            <span>Email (optional)</span>
+            <input
+              name="register-email"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="member@example.com"
+              type="email"
+              value={email}
+            />
+          </label>
+        ) : null}
+
         {mode !== "reset" ? (
           <label className="field">
             <span>Password</span>
@@ -273,7 +292,7 @@ export function CredentialAuthPanel({
         {mode === "reset" ? (
           <>
             <label className="field">
-              <span>Reset token</span>
+              <span>Reset code</span>
               <input name="reset-token" onChange={(event) => setResetToken(event.target.value)} value={resetToken} />
             </label>
             <label className="field">
@@ -310,7 +329,7 @@ export function CredentialAuthPanel({
               onClick={handleResetRequest}
               type="button"
             >
-              {loading ? "Preparing Reset..." : "Request Reset Token"}
+              {loading ? "Sending Code..." : "Send Reset Code"}
             </button>
             <button
               className="button button--primary button--large"

@@ -15,6 +15,7 @@
 11. Run `npm run db:migrate` before `npm run dev`.
 12. Optionally run `npm run db:seed:content` to insert illustrative research items into `content_items`.
 13. Redis is optional. To exercise the Redis path locally, start it (see below) and leave `EPHEMERAL_STORAGE_DRIVER=auto` with `REDIS_URL` set. Without `REDIS_URL` the application falls back to in-memory ephemeral state.
+14. Notification delivery (your password-reset code) is optional locally. Leave `NOTIFICATION_CHANNEL_DRIVER=auto`: outside production with no gateway configured it resolves to the `log` channel, which prints the code to the server log so you can complete a reset without SMS/email. Set `sms`/`email` (or `sms+email`) plus the matching `NOTIFICATION_*_WEBHOOK_URL` to exercise a real gateway (see the notification variables below).
 
 ## Local PostgreSQL
 
@@ -46,6 +47,7 @@ Key convention: every key is namespaced `okkhor:<class>:<name>[:<hashed-identifi
 | Auth rate-limit counter (login) | `okkhor:ratelimit:auth:login:<hash>` | `300s` | automatic expiry; window budget is `10` attempts |
 | Auth rate-limit counter (register) | `okkhor:ratelimit:auth:register:<hash>` | `3600s` | automatic expiry; window budget is `5` attempts |
 | Auth rate-limit counter (password reset) | `okkhor:ratelimit:auth:password-reset:<hash>` | `3600s` | automatic expiry; window budget is `5` attempts |
+| Auth rate-limit counter (password reset confirm) | `okkhor:ratelimit:auth:password-reset-confirm:<hash>` | `900s` | automatic expiry; window budget is `10` attempts; the window matches the reset-code lifetime (`PASSWORD_RESET_MAX_AGE_SECONDS`) |
 
 TTL defaults are set on first write and are never extended on later writes, so a counter window always closes a fixed interval after it started. No manual invalidation is required; every key class expires on its own and is safe to lose at any time.
 
@@ -173,6 +175,51 @@ TTL defaults are set on first write and are never extended on later writes, so a
 - Redis connection string for the ephemeral store (cache, rate-limit counters, and short-lived state)
 - local example: `redis://localhost:6379`
 - never the source of truth; unset it to run without Redis
+
+### `NOTIFICATION_CHANNEL_DRIVER`
+
+- supported values: `auto`, `log`, `sms`, `email`, `sms+email`
+- selects the notification channels the identity module delivers through (password reset)
+- `log` forces the dev/test channel, which records the message and never makes a network call
+- `sms` / `email` / `sms+email` force that exact set and require the matching `NOTIFICATION_*_WEBHOOK_URL`
+- `auto` (the default) resolves to `log` when `NODE_ENV=test`, and otherwise to every channel whose gateway URL is configured (`sms`, `email`, or both); outside production with nothing configured it falls back to `log`, and in production with nothing configured it resolves to no channels (a send fails and is swallowed into the neutral response — see [api-contracts.md](architecture/api-contracts.md) §4.6)
+- the selector mirrors `AI_SUMMARY_DRIVER` ([data-models.md](architecture/data-models.md) §5.10)
+
+### `NOTIFICATION_SMS_WEBHOOK_URL`
+
+- the HTTPS gateway the `sms` channel POSTs to
+- when unset, `auto` does not select the `sms` channel
+
+### `NOTIFICATION_SMS_API_KEY`
+
+- bearer credential sent as `Authorization: Bearer …` to the SMS gateway
+
+### `NOTIFICATION_SMS_SENDER`
+
+- sender id/name presented in the SMS gateway request body
+
+### `NOTIFICATION_SMS_TIMEOUT_MS`
+
+- how long a single SMS send may run before it is aborted
+- default: `10000`
+
+### `NOTIFICATION_EMAIL_WEBHOOK_URL`
+
+- the HTTPS gateway the `email` channel POSTs to
+- when unset, `auto` does not select the `email` channel; the channel also skips a recipient with no email on file
+
+### `NOTIFICATION_EMAIL_API_KEY`
+
+- bearer credential sent as `Authorization: Bearer …` to the email gateway
+
+### `NOTIFICATION_EMAIL_FROM`
+
+- the `From` address presented in the email gateway request body
+
+### `NOTIFICATION_EMAIL_TIMEOUT_MS`
+
+- how long a single email send may run before it is aborted
+- default: `10000`
 
 ## Migration Operations
 

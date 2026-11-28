@@ -66,13 +66,14 @@ function sessionUser(id: string) {
   };
 }
 
-async function signInAs(): Promise<string> {
+async function signInAs(email?: string): Promise<string> {
   const result = await registerUser({
     phoneNumber: "01712345678",
     displayName: "Ahsan Habib",
     password: "Okkhor2026",
     locale: "bn-BD",
     roles: ["learner"],
+    email,
   });
 
   cookieState.accessToken = result.tokens.accessToken;
@@ -214,5 +215,31 @@ describe("member profile pages", () => {
     await expect(MemberProfilePage({ params: Promise.resolve({ id: "missing" }) })).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
+  });
+
+  it("shows the owner their account-email island with the current email", async () => {
+    await signInAs("member@example.com");
+
+    render(await ProfilePage());
+
+    expect(screen.getByRole("heading", { name: "Account Email" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Email address/i)).toHaveValue("member@example.com");
+  });
+
+  it("never renders a member's email on their public profile", async () => {
+    const { user } = await registerUser({
+      phoneNumber: "01712345678",
+      displayName: "Ahsan Habib",
+      password: "Okkhor2026",
+      locale: "bn-BD",
+      roles: ["learner"],
+      email: "member@example.com",
+    });
+
+    render(await MemberProfilePage({ params: Promise.resolve({ id: user.id }) }));
+
+    expect(screen.getByRole("heading", { name: "Ahsan Habib" })).toBeInTheDocument();
+    expect(screen.queryByText("member@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Email address/i)).not.toBeInTheDocument();
   });
 });

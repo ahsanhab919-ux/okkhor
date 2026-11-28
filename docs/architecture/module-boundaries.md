@@ -74,7 +74,8 @@ Reading that as rules:
 ```
 src/modules/identity/
   domain/         auth-config.ts, auth-errors.ts, auth-jwt.ts,
-                  auth-navigation.ts, auth-schemas.ts, auth-types.ts, phone-auth.ts
+                  auth-navigation.ts, auth-schemas.ts, auth-types.ts, phone-auth.ts,
+                  auth-codes.ts         (6-digit reset-code generation + length constant)
   application/    auth-service.ts, auth-rate-limit.ts
   infrastructure/ auth-repository.ts  (driver selector)
                   auth-store.ts       (in-memory repository)
@@ -84,6 +85,7 @@ src/modules/identity/
   ui/             auth-page-shell.tsx, phone-auth-flow.tsx,
                   credential-auth-panel.tsx, protected-workspace-shell.tsx,
                   profile-card.tsx      (server-safe member header)
+                  email-settings-form.tsx (owner-only account-email island on /profile)
 ```
 
 `identity` is the reference example for the layering. New modules should follow it.
@@ -93,13 +95,24 @@ src/modules/identity/
 ```
 src/modules/platform/
   domain/         runtime-status.ts
-  infrastructure/ ephemeral-store.ts    (memory/Redis selector)
-                  postgres-config.ts     (shared pool config)
+                  notification-types.ts    (NotificationDestination/Message/Channel port)
+  infrastructure/ ephemeral-store.ts       (memory/Redis selector)
+                  postgres-config.ts       (shared pool config)
+                  notification-channel.ts  (channel driver selector + fan-out)
+                  log-notification-channel.ts    (dev/test channel + recorded test double)
+                  sms-notification-channel.ts    (HTTPS gateway channel)
+                  email-notification-channel.ts  (HTTPS gateway channel; skips without an email)
 ```
 
 `platform` holds cross-cutting concerns that are not owned by a single product domain. It
 currently has no `application`, `api`, or `ui` layer; add those only when a use case needs
 them.
+
+The **password-reset-delivery slice** adds the notification port here (not a new module): a
+channel is cross-cutting infrastructure, exactly like the ephemeral store, so it lives in
+`platform` and `identity` consumes it ([password-reset-delivery-slice.md](password-reset-delivery-slice.md)
+§8). The port types are identity-agnostic — they carry only contact points and text — so
+`platform` still imports no domain module.
 
 ### 5.3 `experience` — implemented, not yet layered
 
@@ -269,7 +282,9 @@ Current dependency edges (verified in code):
 - `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, `content`,
   `verification`, `community`, `search`, `summarization`, and `library`.
 - `identity` depends on `platform` for the ephemeral store (`auth-rate-limit.ts` imports
-  `getEphemeralStore`).
+  `getEphemeralStore`) and for the notification port (the password-reset use case imports
+  `getNotificationChannels`). Both are the same existing `identity → platform` edge; the slice
+  adds no new module edge.
 - `content` depends on `platform` for the shared Postgres pool config
   (`postgres-content-repository.ts` imports `getPostgresPoolConfig`).
 - `verification` depends on `platform` for the shared Postgres pool config
@@ -310,6 +325,13 @@ Current dependency edges (verified in code):
   the composition root (`app/topics/**`, `app/tags/**`, `app/categories/**`) joins them. The
   community reads stay visible-only at the repository, so the browse surfaces never widen what
   a member can see beyond the existing discussion list.
+- The **password-reset-delivery slice** adds no new module and no new cross-module edge. It
+  adds the notification port + channels to `platform` (the established leaf dependency) and
+  consumes them from `identity`'s existing `platform` edge; the identity-side additions (the
+  `email` field on `UserProfile`, the 6-digit code generator, the `setEmail` use case, the
+  confirm rate-limit scope, and the `email-settings-form.tsx` island) all stay internal to
+  `identity`. The one new endpoint (`PATCH /api/auth/profile`) is composed in
+  `app/api/auth/profile/route.ts`, the sole composition root for the email edit.
 
 Rules that follow:
 
