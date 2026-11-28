@@ -121,6 +121,14 @@ delivered through the same channels, again best-effort ([notifications-slice.md]
 §8, §9.2; [reply-notifications-slice.md](reply-notifications-slice.md) §8, §9;
 [verification-notifications-slice.md](verification-notifications-slice.md) §7, §8).
 
+The **unread-badge slice** adds a small **read surface** on top of that inbox: the shared workspace
+shell (`identity` `ProtectedWorkspaceShell`) fetches the caller's unread count from
+`GET /api/notifications/unread-count` and passes it to `experience`'s `AppSidebar`, which renders a
+count badge on the `Notifications` entry — visible on every protected page. The count is read once
+on load and re-read after a mark-read (a `okkhor:inbox-changed` window event); it is never polled,
+adds no table or migration, and is best-effort chrome that degrades to "no badge"
+([unread-badge-slice.md](unread-badge-slice.md) §3, §8).
+
 ## 6. Request Lifecycle
 
 1. **Edge middleware** (`middleware.ts`) runs for the protected matchers

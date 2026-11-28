@@ -74,6 +74,8 @@ export type NotificationRepository = {
   /** The member's notifications, `createdAt` descending then `id` descending, truncated to `limit`. */
   listNotifications(recipientId: string, options: ListNotificationsOptions): Promise<Notification[]>;
   getNotificationById(id: string): Promise<Notification | undefined>;
+  /** The number of the recipient's notifications with no `readAt` (the unread badge). */
+  countUnread(recipientId: string): Promise<number>;
   /** Sets `readAt` on an unread notification; returns the stored row, or `undefined` when none matched. */
   markNotificationRead(id: string, readAt: string): Promise<Notification | undefined>;
   /** Sets `readAt` on every unread notification of the recipient; returns how many rows changed. */
