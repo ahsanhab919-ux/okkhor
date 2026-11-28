@@ -163,6 +163,36 @@ describe("notification service", () => {
     expect(send).toHaveBeenCalledTimes(2);
   });
 
+  it("keys a verification notification on the decision, so a re-decision notifies again", async () => {
+    const { channel, send } = captureChannel();
+    channelState.channels = [channel];
+
+    const firstDecision = input({
+      type: "verification_rejected",
+      title: "Your scholar verification was rejected",
+      body: "An administrator reviewed your scholar verification and did not approve it. You can update and resubmit your application.",
+      href: "/scholar-verify",
+      dedupeKey: "verification_rejected:app-1:2026-07-01T00:00:00.000Z",
+      destination: { phoneNumber: "+8801" },
+    });
+
+    const first = await createNotification(firstDecision);
+    const retried = await createNotification(firstDecision);
+    // The same application decided again at a later time is a new decision → a new row.
+    const reDecided = await createNotification({
+      ...firstDecision,
+      dedupeKey: "verification_rejected:app-1:2026-08-01T00:00:00.000Z",
+    });
+
+    expect(first.created).toBe(true);
+    expect(first.notification.type).toBe("verification_rejected");
+    expect(retried.created).toBe(false);
+    expect(reDecided.created).toBe(true);
+    expect(reDecided.notification.id).not.toBe(first.notification.id);
+    expect(await listNotifications(member)).toHaveLength(2);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
   it("lists only the member's notifications, newest first", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
 

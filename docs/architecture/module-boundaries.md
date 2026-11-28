@@ -307,11 +307,12 @@ src/modules/notifications/
 no contact points and no copies of moderated content. It depends on `platform` for the shared
 Postgres pool config and the notification port (`notification-service.ts` imports
 `getNotificationChannels`), and it imports **no other domain module**. The producers are joined to
-it at the composition root: `app/api/community/notify-producers.ts` resolves the recipient's
-contact points through identity's `getNotificationDestinationById` and calls `createNotification`
-after a community write commits — a moderation outcome, or a new reply (deriving its recipients from
-the thread through community's public `getThread`) — so neither `community` nor `notifications`
-imports the other.
+it at the composition root: `app/api/community/notify-producers.ts` and
+`app/api/verification/notify-producers.ts` resolve the recipient's contact points through identity's
+`getNotificationDestinationById` and call `createNotification` after a write commits — a moderation
+outcome, a new reply (deriving its recipients from the thread through community's public `getThread`),
+or a scholar verification decision (notifying the applicant) — so neither `community`, `verification`,
+nor `notifications` imports another of them.
 
 ## 6. Cross-Module Rules
 
@@ -385,6 +386,12 @@ Current dependency edges (verified in code):
   reply route (`app/api/community/threads/[id]/replies/route.ts`) invoke the helper after their
   already-authorized use case commits; the inbox routes (`app/api/notifications/**`) and the
   `/notifications` page are composed in `app/**`, so no module reaches into another.
+- The **verification-notifications slice** adds no module and no edge. Its producer is a second
+  composition-root helper, `app/api/verification/notify-producers.ts` (mirroring the community one),
+  which turns a scholar decision into a `createNotification` call for the applicant, resolving their
+  contact points through identity's `getNotificationDestinationById`. The decision route
+  (`app/api/verification/applications/[id]/route.ts`) invokes it after `decideApplication` (and the
+  approval grant) commits, so neither `verification` nor `notifications` imports the other.
 
 Rules that follow:
 

@@ -8,7 +8,9 @@ export type NotificationType =
   | "content_hidden"
   | "report_resolved"
   | "report_dismissed"
-  | "reply_posted";
+  | "reply_posted"
+  | "verification_approved"
+  | "verification_rejected";
 
 /**
  * A single member notification. It records an *outcome* — a title, a body, and a link — never a copy

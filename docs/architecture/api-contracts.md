@@ -360,6 +360,13 @@ Approve or reject a submitted application. Requires the `admin` role.
   `VERIFICATION_VALIDATION_FAILED` (400), `VERIFICATION_APPLICATION_NOT_FOUND` (404),
   `VERIFICATION_CONFLICT` (409 — the application is not `submitted`, or `updatedAt` did not
   match), `VERIFICATION_UNKNOWN` (500).
+- **Side effect:** on a successful `200`, the route creates a `verification_approved` or
+  `verification_rejected` notification for the applicant
+  ([verification-notifications-slice.md](verification-notifications-slice.md)). It is best-effort —
+  the `200` response is unchanged even if a notification cannot be stored or delivered — keyed on
+  the decision (`verification_<status>:<applicationId>:<reviewedAt>`) so a retried decision is a
+  no-op while a later decision on the same application notifies again, and the notification carries
+  neither the review note nor the reviewer's identity.
 
 ### 4.19 `GET /api/community/threads`
 
