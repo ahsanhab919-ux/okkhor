@@ -8,15 +8,16 @@
 
 Define the data the system owns: the domain types the code speaks in, the PostgreSQL schema
 that persists them, the in-memory equivalent used in tests, and the optional ephemeral store.
-This is the schema of record for the `auth_*` tables and `content_items`, and the contract
-every repository implementation must satisfy.
+This is the schema of record for the `auth_*` tables, `content_items`, and
+`scholar_verifications`, and the contract every repository implementation must satisfy.
 
 ## 2. Domain Types
 
-Identity types are defined in `src/modules/identity/domain/auth-types.ts` (§2.1–§2.5) and
-content types in `src/modules/content/domain/content-types.ts` (§2.6). Types are the shared
+Identity types are defined in `src/modules/identity/domain/auth-types.ts` (§2.1–§2.5),
+content types in `src/modules/content/domain/content-types.ts` (§2.6), and verification types
+in `src/modules/verification/domain/verification-types.ts` (§2.7). Types are the shared
 language; storage is an implementation detail behind each module's repository interface
-(`AuthRepository`, `ContentRepository`).
+(`AuthRepository`, `ContentRepository`, `VerificationRepository`).
 
 ### 2.1 `UserProfile`
 
@@ -97,16 +98,50 @@ Related types: `ResearchItemStatus`, `ContentAuthor` (`{ id, roles }`), `CreateI
 Pagination types: `ContentCursor = { publishedAt, id }`, `ListPublishedItemsOptions`,
 `ListPublishedItemsResult`.
 
+### 2.7 `ScholarVerification` (verification)
+
+The scholar-verification application. Defined in
+`src/modules/verification/domain/verification-types.ts`.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | UUID, primary key |
+| `applicantId` | `string` | The applying user; unique (one application per user) |
+| `status` | `"draft" \| "submitted" \| "approved" \| "rejected"` | Applicant-editable while `draft`/`rejected`; reviewable while `submitted` |
+| `displayName` | `string` | Public-facing name |
+| `degrees` | `VerificationDegree[]` | Stored as `jsonb`; each `{ degreeType, institution, year, evidenceUrl? }` |
+| `affiliations` | `VerificationAffiliation[]` | Stored as `jsonb`; each `{ role, organization, since, evidenceUrl? }` |
+| `portfolio` | `string` | Selected publications / documentary work |
+| `specializations` | `string[]` | Stored as `jsonb` |
+| `languages` | `string[]` | Stored as `jsonb` |
+| `reviewNote` | `string`, optional | Set on a decision; cleared on any applicant write |
+| `reviewedBy` | `string`, optional | Admin id that decided the application |
+| `submittedAt` | `string` (ISO), optional | Stamped on every transition to `submitted` |
+| `reviewedAt` | `string` (ISO), optional | Stamped on a decision |
+| `createdAt` | `string` (ISO) | |
+| `updatedAt` | `string` (ISO) | Doubles as the optimistic-concurrency token |
+
+Related types: `VerificationStatus`, `VerificationDegree`, `VerificationAffiliation`,
+`VerificationActor` (`{ id, roles }`), `SaveVerificationInput` (all fields optional; `status`
+restricted to `draft | submitted`), `DecideVerificationInput` (`status: approved | rejected`),
+and `VerificationRepository` (`getByApplicantId`, `getById`, `listByStatus`, `create`,
+`updateIfUnchanged`). The role rule (`canReview`, admins only) and the state rule
+(`canApplicantEdit`, `canReviewStatus`) live in `verification-authorization.ts` and
+`verification-state.ts`.
+
 ## 3. PostgreSQL Schema
 
 The `auth_*` tables (§3.1–§3.3) are created by
 `migrations/20260718222000_create_auth_identity_tables.cjs`; `content_items` (§3.4) by
 `migrations/20261128090000_create_content_items.cjs`, with the authorship columns added by
-`migrations/20261128100000_add_content_item_authorship.cjs` (see `content-authoring-slice.md`).
+`migrations/20261128100000_add_content_item_authorship.cjs` (see `content-authoring-slice.md`),
+and `scholar_verifications` (§3.5) by
+`migrations/20261128110000_create_scholar_verifications.cjs` (see
+`scholar-verification-slice.md`).
 Timestamps are stored as ISO-8601
 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
-portability is preferred over database-side timezone arithmetic; `roles` and `tags` are
-`jsonb`.
+portability is preferred over database-side timezone arithmetic; `roles`, `tags`, `degrees`,
+`affiliations`, `specializations`, and `languages` are `jsonb`.
 
 ### 3.1 `auth_users`
 
@@ -170,13 +205,40 @@ list query. The list read is a keyset query — `WHERE status = 'published' ORDE
 published_at DESC, id DESC` — with the cursor encoded as `"<publishedAt>|<id>"`. The
 authoring view (`listItems`) reads every status ordered by `updated_at DESC, id DESC`.
 
-### 3.5 Migration Operations
+### 3.5 `scholar_verifications`
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `id` | `text` | primary key |
+| `applicant_id` | `text` | not null |
+| `status` | `text` | not null, default `draft` |
+| `display_name` | `text` | not null |
+| `degrees` | `jsonb` | not null, default `[]` |
+| `affiliations` | `jsonb` | not null, default `[]` |
+| `portfolio` | `text` | not null, default `''` |
+| `specializations` | `jsonb` | not null, default `[]` |
+| `languages` | `jsonb` | not null, default `[]` |
+| `review_note` | `text` | nullable |
+| `reviewed_by` | `text` | nullable |
+| `submitted_at` | `text` | nullable |
+| `reviewed_at` | `text` | nullable |
+| `created_at` | `text` | not null |
+| `updated_at` | `text` | not null |
+
+Indexes: `scholar_verifications_applicant_id_idx` on `applicant_id` (**unique** — one
+application per user, enforced at the database) and `scholar_verifications_status_submitted_at_idx`
+on `(status, submitted_at)` to support the review queue. The queue reads
+`WHERE status = $1 ORDER BY submitted_at DESC, id DESC`; there is no `applicant_id` FK to
+`auth_users` (modules stay decoupled, and identity owns its own table).
+
+### 3.6 Migration Operations
 
 Managed by `node-pg-migrate` (config keys kebab-case, `single-transaction: true`). See
 `docs/configuration.md` for commands. The auth migration's `down` drops the three tables in
 dependent order (`auth_password_resets`, then the index, then `auth_sessions`, then
 `auth_users`); the content migration's `down` drops the index, then `content_items`; the
-authorship migration's `down` drops `author_id` and `updated_by`.
+authorship migration's `down` drops `author_id` and `updated_by`; the verification migration's
+`down` drops both indexes, then `scholar_verifications`.
 
 ## 4. In-Memory Store
 
@@ -208,6 +270,16 @@ sorted by `updatedAt`/`id` descending, `getItemById` returns drafts too, and
 (returning `false` otherwise, which the service turns into a `409`). Like the identity store
 it is cached on `globalThis` (`__okkhorContentStore`) and replaced between tests by
 `resetContentStoreForTesting()`.
+
+### 4.3 Verification store
+
+Defined in `src/modules/verification/infrastructure/verification-store.ts`.
+`VerificationStore` holds a single `verifications: Map<string, ScholarVerification>` keyed by
+`id`. `getByApplicantId` is a linear scan (correct at test scale), `listByStatus` filters by
+`status` and sorts by `updatedAt`/`id` descending, and `updateIfUnchanged` writes only when the
+stored `updatedAt` matches the expected value (returning `false` otherwise, which the service
+turns into a `409`). Like the other stores it is cached on `globalThis`
+(`__okkhorVerificationStore`) and replaced between tests by `resetVerificationStoreForTesting()`.
 
 ## 5. Persistence Driver Selection
 
@@ -272,6 +344,25 @@ Both implementations satisfy the `ContentRepository` interface. Application code
 `getContentRepository()`; the driver is independent of `AUTH_STORAGE_DRIVER` so the two
 modules can be pointed at different stores.
 
+### 5.5 Verification repository
+
+`src/modules/verification/infrastructure/verification-repository.ts` is the single decision
+point for the `verification` module, using its own driver variable:
+
+```
+VERIFICATION_STORAGE_DRIVER = auto | memory | postgres   (default: auto)
+  memory   → memory repository
+  postgres → postgres repository
+  auto     → NODE_ENV === "test"        → memory
+             else DATABASE_URL present  → postgres
+             else                       → throw (misconfiguration)
+```
+
+Both implementations satisfy the `VerificationRepository` interface. Application code calls
+`getVerificationRepository()`; the driver is independent of `AUTH_STORAGE_DRIVER` and
+`CONTENT_STORAGE_DRIVER`. The postgres `updateIfUnchanged` issues
+`UPDATE … WHERE id = $1 AND updated_at = $n` and returns whether exactly one row matched.
+
 ## 6. Data Classification and Handling
 
 | Data | Classification | Handling rule |
@@ -319,6 +410,10 @@ Automatic retention jobs are future work, not a current behaviour.
 - `src/modules/content/domain/content-types.ts` — content domain types
 - `src/modules/content/infrastructure/content-store.ts` — in-memory content store
 - `src/modules/content/infrastructure/postgres-content-repository.ts` — content SQL implementation
+- `migrations/20261128110000_create_scholar_verifications.cjs` — `scholar_verifications` schema of record
+- `src/modules/verification/domain/verification-types.ts` — verification domain types
+- `src/modules/verification/infrastructure/verification-store.ts` — in-memory verification store
+- `src/modules/verification/infrastructure/postgres-verification-repository.ts` — verification SQL implementation
 - `docs/configuration.md` — connection env vars and migration commands
 - `docs/adr/ADR-004-adopt-postgresql-as-primary-source-of-truth.md`
 - `docs/adr/ADR-005-adopt-redis-for-cache-and-ephemeral-state.md`

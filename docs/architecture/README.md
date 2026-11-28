@@ -13,7 +13,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `authentication-backend-slice.md` - auth domain flow, persistence behavior, migration workflow, and validation notes
 - `content-comprehension-slice.md` - first product slice: research-item read path (status: Implemented; read path only)
 - `content-authoring-slice.md` - second product slice: create/edit/publish research items (status: Implemented)
-- `scholar-verification-slice.md` - third product slice: credentials application and admin review granting the `scholar` role (status: Accepted; not yet implemented)
+- `scholar-verification-slice.md` - third product slice: credentials application and admin review granting the `scholar` role (status: Implemented)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions
