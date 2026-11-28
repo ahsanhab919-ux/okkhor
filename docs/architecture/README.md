@@ -27,6 +27,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `reply-notifications-slice.md` - fourteenth product slice: reply notifications delivered to a thread's author and prior participants (status: Implemented)
 - `verification-notifications-slice.md` - fifteenth product slice: verification-decision notifications delivered to the applicant on approve/reject (status: Implemented)
 - `unread-badge-slice.md` - sixteenth product slice: a live unread count badge on the workspace sidebar's Notifications entry (status: Implemented)
+- `journal-club-sessions-slice.md` - seventeenth product slice: scholar/admin-scheduled journal-club sessions on a published research item, going/not-going RSVPs, and RSVP/cancel notifications (status: Proposed)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions
