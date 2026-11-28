@@ -117,6 +117,9 @@ export default async function AdminOverviewPage() {
             <Link className="inline-link" href="/admin/users">
               Users
             </Link>
+            <Link className="inline-link" href="/admin/settings">
+              Settings
+            </Link>
             <span className="page-hero__count">
               <strong>{awaitingReview}</strong>
               <span>To review</span>
