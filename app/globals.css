@@ -3759,3 +3759,32 @@ a.tab-row__tab--active {
   font-weight: 700;
   color: var(--color-on-surface);
 }
+
+/* The communications surface — the Stitch "Communications" idiom: the channels a notification
+   resolves to and the outcomes the platform sends. It is read-only: the platform has no broadcast
+   or segment composer, so nothing here composes or sends a message. */
+.outcome-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.outcome-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.outcome-item__label {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.outcome-item__desc {
+  color: var(--color-on-surface-variant);
+  font-size: 0.85rem;
+}

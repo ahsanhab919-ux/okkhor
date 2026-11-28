@@ -48,6 +48,9 @@ At the current stage the deployed product is intentionally narrow:
   runs no pipeline
 - an administrator content register (`/admin/content`) listing every research item in the archive
   with its classification, status, and summary state, filterable by status, read-only
+- an administrator communications surface (`/admin/communications`) reporting the delivery channels
+  a member notification resolves to — the driver, the resolved channels, and whether each gateway is
+  configured — and the outcomes the platform sends, read-only
 - browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
   and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe
