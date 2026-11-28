@@ -32,27 +32,27 @@ export default async function TopicsPage() {
 
       <main className="page-shell page-shell--wide">
         <section className="content-band">
-          <div className="section-heading">
+          <header className="page-hero">
             <div>
               <p className="eyebrow eyebrow--blue">Discovery</p>
-              <h1>Topics</h1>
+              <h1 className="page-hero__title">Topics</h1>
+              <p className="page-hero__lead">
+                Every research tag in the archive with the number of published items filed under it.
+                Choose a topic to read everything about it.
+              </p>
             </div>
-            <p>
-              Every research tag in the archive with the number of published items filed under it.
-              Choose a topic to read everything about it.
-            </p>
-          </div>
+          </header>
 
           {tags.length === 0 ? (
             <p>No research topics yet.</p>
           ) : (
-            <ul className="activity-list">
+            <ul className="topic-grid">
               {tags.map((topic) => (
-                <li key={topic.tag} className="activity-entry">
-                  <Link className="inline-link" href={`/tags/${encodeURIComponent(topic.tag)}`}>
+                <li key={topic.tag} className="topic-card">
+                  <Link className="topic-card__link" href={`/tags/${encodeURIComponent(topic.tag)}`}>
                     {topic.tag}
                   </Link>
-                  <span>
+                  <span className="topic-card__count">
                     {topic.count} {topic.count === 1 ? "item" : "items"}
                   </span>
                 </li>
@@ -60,41 +60,39 @@ export default async function TopicsPage() {
             </ul>
           )}
 
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow eyebrow--blue">Community</p>
-              <h2>Categories</h2>
-            </div>
-          </div>
+          <section className="topic-section">
+            <p className="eyebrow eyebrow--blue">Community</p>
+            <h2 className="topic-section__heading">Categories</h2>
 
-          {viewer ? (
-            categories.length === 0 ? (
-              <p>No community categories yet.</p>
+            {viewer ? (
+              categories.length === 0 ? (
+                <p>No community categories yet.</p>
+              ) : (
+                <ul className="topic-grid">
+                  {categories.map((topic) => (
+                    <li key={topic.category} className="topic-card">
+                      <Link
+                        className="topic-card__link"
+                        href={`/categories/${encodeURIComponent(topic.category)}`}
+                      >
+                        {topic.category}
+                      </Link>
+                      <span className="topic-card__count">
+                        {topic.count} {topic.count === 1 ? "thread" : "threads"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )
             ) : (
-              <ul className="activity-list">
-                {categories.map((topic) => (
-                  <li key={topic.category} className="activity-entry">
-                    <Link
-                      className="inline-link"
-                      href={`/categories/${encodeURIComponent(topic.category)}`}
-                    >
-                      {topic.category}
-                    </Link>
-                    <span>
-                      {topic.count} {topic.count === 1 ? "thread" : "threads"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )
-          ) : (
-            <p>
-              <Link className="inline-link" href={`/auth?next=${encodeURIComponent("/topics")}`}>
-                Sign in
-              </Link>{" "}
-              to browse community categories.
-            </p>
-          )}
+              <p>
+                <Link className="inline-link" href={`/auth?next=${encodeURIComponent("/topics")}`}>
+                  Sign in
+                </Link>{" "}
+                to browse community categories.
+              </p>
+            )}
+          </section>
         </section>
       </main>
     </div>
