@@ -2862,3 +2862,183 @@ code {
     padding: 18px;
   }
 }
+
+/* Notifications — the Stitch "Notification Center" stream: a hero carrying the mark-all action over
+   recency-grouped cards (Today / Yesterday / Earlier). Unread entries take a primary left edge and a
+   dot; the tile glyph reflects the notification's real `type`. */
+.inbox-page {
+  display: grid;
+  gap: 28px;
+}
+
+.inbox-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.inbox-hero__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: clamp(1.9rem, 3.4vw, 2.7rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.inbox-hero__lead {
+  margin: 8px 0 0;
+  max-width: 56ch;
+  color: var(--color-on-surface-variant);
+  line-height: 1.6;
+}
+
+.inbox-hero .notification-actions .button {
+  border-color: rgba(173, 198, 255, 0.14);
+  background: var(--color-surface-container-highest);
+  color: var(--color-primary);
+}
+
+.notification-stream {
+  display: grid;
+  gap: 32px;
+}
+
+.notification-group {
+  display: grid;
+  gap: 14px;
+}
+
+.notification-group__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.notification-group__label {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.notification-group__rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, rgba(66, 71, 84, 0.7), transparent);
+}
+
+.notification-group__items {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: rgba(28, 32, 38, 0.4);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.notification-card:hover {
+  background: var(--color-surface-container);
+  border-color: var(--color-line-strong);
+}
+
+.notification-card--unread {
+  border-left: 4px solid var(--color-primary);
+}
+
+.notification-card__dot {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+}
+
+.notification-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container-highest);
+  color: var(--color-on-surface-variant);
+}
+
+.notification-card__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.notification-card--unread .notification-card__icon {
+  background: rgba(173, 198, 255, 0.12);
+  color: var(--color-primary);
+}
+
+.notification-card__body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.notification-card__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.notification-card__text {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  line-height: 1.6;
+}
+
+.notification-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.notification-card__ago {
+  color: var(--color-outline);
+  font-size: 0.82rem;
+}
+
+.notification-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .notification-card {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .notification-card__icon {
+    width: 42px;
+    height: 42px;
+  }
+}
