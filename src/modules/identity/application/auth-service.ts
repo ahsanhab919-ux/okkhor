@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { compare, hash } from "bcryptjs";
 import { ZodError } from "zod";
@@ -8,6 +8,7 @@ import {
   PASSWORD_RESET_MAX_AGE_SECONDS,
   REFRESH_TOKEN_MAX_AGE_SECONDS,
 } from "@/src/modules/identity/domain/auth-config";
+import { generatePasswordResetCode } from "@/src/modules/identity/domain/auth-codes";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
 import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from "@/src/modules/identity/domain/auth-jwt";
 import {
@@ -17,6 +18,8 @@ import {
   passwordResetConfirmSchema,
   type PasswordResetRequestInput,
   passwordResetRequestSchema,
+  type ProfileEmailUpdateInput,
+  profileEmailUpdateSchema,
   type RegistrationInput,
   registrationSchema,
 } from "@/src/modules/identity/domain/auth-schemas";
@@ -31,6 +34,8 @@ import type {
   UserRole,
 } from "@/src/modules/identity/domain/auth-types";
 import { getAuthRepository } from "@/src/modules/identity/infrastructure/auth-repository";
+import type { NotificationChannel, NotificationMessage } from "@/src/modules/platform/domain/notification-types";
+import { getNotificationChannels } from "@/src/modules/platform/infrastructure/notification-channel";
 
 const PASSWORD_SALT_ROUNDS = 12;
 
@@ -40,6 +45,28 @@ function toIsoDate(secondsFromNow: number) {
 
 function hashOpaqueToken(value: string) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+/**
+ * Sends a message through every resolved channel, isolating failures: a failing channel is logged
+ * and never thrown, so it cannot stop another channel and never changes the caller's response
+ * (`password-reset-delivery-slice.md` §7, §9).
+ */
+async function deliverNotification(channels: NotificationChannel[], message: NotificationMessage) {
+  if (channels.length === 0) {
+    console.error("[notification] No delivery channel is configured; the message was not sent.");
+    return;
+  }
+
+  await Promise.all(
+    channels.map(async (channel) => {
+      try {
+        await channel.send(message);
+      } catch (error) {
+        console.error(`[notification] ${channel.kind} delivery failed.`, error);
+      }
+    }),
+  );
 }
 
 function sanitizeUser(user: UserRecord): UserProfile {
@@ -126,6 +153,7 @@ export async function registerUser(input: RegistrationInput): Promise<AuthSucces
     updatedAt: now,
     passwordUpdatedAt: now,
     passwordHash: await hash(parsed.password, PASSWORD_SALT_ROUNDS),
+    email: parsed.email,
   };
 
   await repository.createUser(user);
@@ -261,33 +289,63 @@ export async function logoutUser(refreshToken?: string) {
   }
 }
 
-export async function requestPasswordReset(input: PasswordResetRequestInput) {
+const PASSWORD_RESET_NEUTRAL_MESSAGE = "If the account exists, a reset instruction has been issued.";
+
+/**
+ * The neutral reset-request response. `resetTokenPreview`/`expiresAt` are present only under the
+ * dev/test `log` channel outside production; they are absent for real deliveries and in production
+ * (`password-reset-delivery-slice.md` §6).
+ */
+export type PasswordResetRequestResult = {
+  accepted: true;
+  message: string;
+  resetTokenPreview?: string;
+  expiresAt?: string;
+};
+
+/**
+ * Issues a password-reset code and delivers it through the configured channels. The response is
+ * identical whether the account exists, the delivery failed, or the send succeeded, so it cannot
+ * be used to test account existence (`password-reset-delivery-slice.md` §7). The code itself is
+ * returned only under the dev/test `log` channel outside production (§6).
+ */
+export async function requestPasswordReset(input: PasswordResetRequestInput): Promise<PasswordResetRequestResult> {
   const parsed = parseSchema(passwordResetRequestSchema, input);
   const user = await getUserByPhone(parsed.phoneNumber);
 
   if (!user) {
     return {
       accepted: true,
-      message: "If the account exists, a reset instruction has been issued.",
+      message: PASSWORD_RESET_NEUTRAL_MESSAGE,
     };
   }
 
-  const token = randomBytes(24).toString("hex");
+  const code = generatePasswordResetCode();
   const record: PasswordResetRecord = {
     id: randomUUID(),
     userId: user.id,
-    tokenHash: hashOpaqueToken(token),
+    tokenHash: hashOpaqueToken(code),
     createdAt: new Date().toISOString(),
     expiresAt: toIsoDate(PASSWORD_RESET_MAX_AGE_SECONDS),
   };
 
   await getAuthRepository().createPasswordReset(record);
 
+  const channels = getNotificationChannels();
+  const expiresInMinutes = Math.round(PASSWORD_RESET_MAX_AGE_SECONDS / 60);
+
+  await deliverNotification(channels, {
+    destination: { phoneNumber: user.phoneNumber, email: user.email },
+    subject: "Your Okkhor password reset code",
+    body: `Your Okkhor password reset code is ${code}. It expires in ${expiresInMinutes} minutes. If you did not request a reset, you can ignore this message.`,
+  });
+
+  const previewAllowed = process.env.NODE_ENV !== "production" && channels.some((channel) => channel.kind === "log");
+
   return {
     accepted: true,
-    message: "Password reset created for delivery through the configured channel.",
-    resetTokenPreview: token,
-    expiresAt: record.expiresAt,
+    message: PASSWORD_RESET_NEUTRAL_MESSAGE,
+    ...(previewAllowed ? { resetTokenPreview: code, expiresAt: record.expiresAt } : {}),
   };
 }
 
@@ -323,4 +381,26 @@ export async function confirmPasswordReset(input: PasswordResetConfirmInput) {
   );
 
   await repository.updatePasswordReset(resetRecord);
+}
+
+/**
+ * Sets or clears the acting member's own email through identity's public surface. The caller
+ * resolves the actor from the session, and this use case re-reads the user so the edit is always
+ * scoped to the caller's own record (`password-reset-delivery-slice.md` §6, §7). An empty value
+ * clears the field.
+ */
+export async function setEmail(actor: { id: string }, input: ProfileEmailUpdateInput): Promise<UserProfile> {
+  const parsed = parseSchema(profileEmailUpdateSchema, input);
+  const repository = getAuthRepository();
+  const user = await repository.getUserById(actor.id);
+
+  if (!user) {
+    throw new AuthError("Authenticated user no longer exists.", "AUTH_UNAUTHORIZED", 401);
+  }
+
+  user.email = parsed.email;
+  user.updatedAt = new Date().toISOString();
+  await repository.updateUser(user);
+
+  return sanitizeUser(user);
 }

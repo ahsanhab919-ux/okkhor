@@ -206,9 +206,15 @@ Unknown failures return a generic `AUTH_UNKNOWN` response.
   - risk: development fallback secret is unsafe for production
   - mitigation: set `AUTH_JWT_SECRET` in every deployed environment before release
 
-- **Reset token preview response**
+- **Reset token preview response** — **resolved** by
+  [password-reset-delivery-slice.md](password-reset-delivery-slice.md) (eleventh product slice)
   - risk: preview token must never be exposed in production-grade delivery
-  - mitigation: replace with SMS or trusted out-of-band delivery before production launch
+  - mitigation (shipped): the reset token is now a **6-digit numeric code** delivered out of band
+    over SMS (and email when the account has one) through the `platform` notification channels;
+    the `resetTokenPreview` response field is returned **only** under the dev/test `log` channel
+    and only when `NODE_ENV !== "production"`, so production responses never carry the code, and
+    the confirm endpoint is rate-limited so the short code cannot be brute-forced
+    ([api-contracts.md](api-contracts.md) §4.6–§4.7, §5)
 
 - **Access-token-only middleware validation**
   - risk: if the access token expires before the client refreshes, users are redirected to auth

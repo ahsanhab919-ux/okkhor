@@ -10,6 +10,11 @@ export type UserProfile = {
   updatedAt: string;
   lastLoginAt?: string;
   passwordUpdatedAt: string;
+  /**
+   * Optional recovery/notification contact (`password-reset-delivery-slice.md` §5). It is not an
+   * identifier, is not unique, and is returned only to its owner — never through `PublicProfile`.
+   */
+  email?: string;
 };
 
 export type UserRecord = UserProfile & {
