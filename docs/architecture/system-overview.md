@@ -33,6 +33,8 @@ At the current stage the deployed product is intentionally narrow:
   (`/admin/community/reports`)
 - an administrator console overview (`/admin`) that indexes the moderation, report, and
   verification queues with figures counted from the records
+- an administrator scholar roster (`/admin/scholars`) over the verification record — the verified
+  scholars and the applications still awaiting a decision, each counted from its own credentials
 - browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
   and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe

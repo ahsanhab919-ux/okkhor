@@ -3450,3 +3450,96 @@ code {
   font-size: 0.8rem;
   white-space: nowrap;
 }
+
+/* The scholar roster — the Stitch "Scholar Management" idiom: a segmented filter over a grid of
+   scholar cards, each counting only the credentials the record actually holds. */
+a.tab-row__tab {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+a.tab-row__tab--active {
+  color: var(--color-primary);
+}
+
+.scholar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scholar-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-container);
+  transition: border-color 0.2s ease;
+}
+
+.scholar-card:hover {
+  border-color: var(--color-line-strong);
+}
+
+.scholar-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scholar-card__name {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+
+.scholar-card__discipline {
+  margin: 4px 0 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.9rem;
+}
+
+.scholar-card__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.scholar-card__stat {
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container-low);
+}
+
+.scholar-card__stat span {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-outline);
+}
+
+.scholar-card__stat strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-headline);
+  font-size: 1.15rem;
+  color: var(--color-on-surface);
+}
+
+.scholar-card__actions {
+  margin-top: auto;
+}
