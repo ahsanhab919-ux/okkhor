@@ -25,6 +25,7 @@ import type {
   AuthSuccess,
   PasswordResetRecord,
   UserProfile,
+  UserProfileLabel,
   UserRecord,
   UserRole,
 } from "@/src/modules/identity/domain/auth-types";
@@ -191,6 +192,16 @@ export async function grantUserRole(
   }
 
   return sanitizeUser(user);
+}
+
+/**
+ * Resolves display labels for a set of user ids through identity's public surface. Used by the
+ * composition root to label authors in search results; the search module never resolves names.
+ */
+export async function getUserProfilesByIds(ids: string[]): Promise<UserProfileLabel[]> {
+  const uniqueIds = Array.from(new Set(ids));
+
+  return getAuthRepository().listProfilesByIds(uniqueIds);
 }
 
 export async function refreshUserSession(refreshToken: string): Promise<AuthSuccess> {
