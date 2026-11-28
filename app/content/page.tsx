@@ -22,9 +22,14 @@ export const metadata: Metadata = {
  * adopts the Stitch "Explore - Okkhor Desktop" layout: a discovery hero, tag filters wired to the
  * existing `/tags/[tag]` pages, and a bento grid of real archive items.
  */
-export default async function ContentListPage() {
-  const [{ items }, tags] = await Promise.all([
-    listPublishedItems({ limit: 20 }),
+export default async function ContentListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cursor?: string }>;
+}) {
+  const { cursor } = await searchParams;
+  const [{ items, nextCursor }, tags] = await Promise.all([
+    listPublishedItems({ limit: 20, cursor }),
     listDistinctPublishedTags(),
   ]);
 
@@ -65,8 +70,13 @@ export default async function ContentListPage() {
         <section className="explore-load-more">
           <div className="explore-load-more__rule" />
           <p>
-            Showing the latest {items.length} {items.length === 1 ? "research item" : "research items"}
+            Showing {items.length} {items.length === 1 ? "research item" : "research items"}
           </p>
+          {nextCursor ? (
+            <Link className="explore-load-more__button" href={`/content?cursor=${encodeURIComponent(nextCursor)}`}>
+              Load More Archives
+            </Link>
+          ) : null}
         </section>
 
         <footer className="marketing-footer">
