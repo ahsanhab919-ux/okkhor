@@ -168,10 +168,13 @@ export function AppSidebar({
   items,
   activeHref,
   onLogout,
+  unreadCount = 0,
 }: {
   items: NavItem[];
   activeHref: string;
   onLogout?: () => void;
+  /** The member's unread notifications, shown as a badge on the Notifications entry when > 0. */
+  unreadCount?: number;
 }) {
   return (
     <aside className="app-sidebar">
@@ -185,6 +188,11 @@ export function AppSidebar({
             href={item.href}
           >
             {item.label}
+            {item.href === "/notifications" && unreadCount > 0 ? (
+              <span className="sidebar-badge" aria-label={`${unreadCount} unread notifications`}>
+                {unreadCount}
+              </span>
+            ) : null}
           </Link>
         ))}
       </div>

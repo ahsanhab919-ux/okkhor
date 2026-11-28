@@ -137,7 +137,9 @@ Acceptance criteria:
 - **retention or expiry** — notifications are kept indefinitely (bounded by the list limit); a
   retention/pruning job is deferred
 - **a live unread badge** — the nav shows a link and icon only; an unread count on every page is
-  deferred with the badge (§13 decision 4)
+  deferred with the badge (§13 decision 4). **Resolved** by the
+  [unread-badge slice](unread-badge-slice.md), which adds a count badge on the `Notifications` entry
+  in the shared workspace sidebar (a read-only count endpoint, read on load and after a mark-read).
 - **a member-to-member or admin-broadcast notification** — this slice is system-to-member only
 - **localization of the notification copy** — a single English template per type this slice;
   multilingual copy is a follow-up
@@ -489,7 +491,9 @@ Uses only `ADR-004` (PostgreSQL — one new table) and the already-built `platfo
    mark one notification read and mark all read; the list is newest-first (limit `20`, clamped to
    `[1, 50]`); notifications are kept with no expiry; the member nav gains a Notifications entry with a
    bell icon; and no live unread badge is added (it would need an unread query on every page). A
-   retention policy is deferred (§4).
+   retention policy is deferred (§4). **Update:** the deferred live unread badge was added by the
+   [unread-badge slice](unread-badge-slice.md) — a count badge on the shared sidebar's `Notifications`
+   entry, served by `GET /api/notifications/unread-count` and refreshed after a mark-read (§4).
 5. **Idempotency — one notification per item.** A unique key on `(recipient_id, dedupe_key)` and a
    delivery-on-first-insert rule make a repeated moderation call — or a re-hide after a restore — a
    no-op, so a member is never notified twice about the same item (§5, §9).

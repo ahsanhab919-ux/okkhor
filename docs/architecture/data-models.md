@@ -367,9 +367,11 @@ Related types: `NotificationActor` (`{ id }`, resolved from identity at the comp
 (`{ notification, created }`), `NotificationStore`
 (`{ notifications: Map<string, Notification> }`), and `NotificationRepository`
 (`createNotification`, `listNotifications`, `getNotificationById`, `markNotificationRead`,
-`markAllNotificationsRead`). `createNotification` is an idempotent insert on
+`markAllNotificationsRead`, `countUnread`). `createNotification` is an idempotent insert on
 `(recipientId, dedupeKey)`: it returns the entry that is stored afterwards (the new one, or the
 pre-existing one) and whether this call created it; delivery happens **only** for a created entry.
+`countUnread(recipientId)` is a read-only count of the member's entries with no `readAt` — the
+sidebar badge ([unread-badge-slice.md](unread-badge-slice.md) §5).
 The entry stores **no contact point** — the destination is resolved through identity at the
 composition root and passed as delivery-only data
 ([notifications-slice.md](notifications-slice.md) §5, §7).
@@ -639,7 +641,10 @@ The write is an **idempotent insert**
 the pair), so the service always learns the stored row and whether it was new (delivery happens
 only when it was). Mark-read is `UPDATE … SET read_at = $1 WHERE id = $2 AND read_at IS NULL`;
 mark-all-read is `UPDATE … WHERE recipient_id = $2 AND read_at IS NULL`, returning the affected
-count. The file is a brand-new table, so the migration rewrites no existing row.
+count. The unread badge is a read-only `SELECT COUNT(*) … WHERE recipient_id = $1 AND read_at IS
+NULL`, reusing the recipient index prefix and adding no index
+([unread-badge-slice.md](unread-badge-slice.md) §9). The file is a brand-new table, so the
+migration rewrites no existing row.
 
 ### 3.11 Migration Operations
 
@@ -762,7 +767,8 @@ if found (the in-memory form of the unique index), otherwise inserts and reports
 descending, and truncates to the limit; `getNotificationById` is a map lookup;
 `markNotificationRead` sets `read_at` on an unread entry (returning the existing one unchanged when
 already read); `markAllNotificationsRead` sets `read_at` on every unread entry of the member and
-returns the count. Like the other stores it is cached on `globalThis`
+returns the count; `countUnread` scans the member's entries and counts those with no `read_at` (the
+in-memory form of the badge's read-only count). Like the other stores it is cached on `globalThis`
 (`__okkhorNotificationStore` / `__okkhorMemoryNotificationRepository`) and replaced between tests
 by `resetNotificationStoreForTesting()`.
 
@@ -955,7 +961,9 @@ Both implementations satisfy the `NotificationRepository` interface. Application
 `getNotificationRepository()`; the driver is independent of the other modules' drivers. The
 postgres `createNotification` issues `INSERT … ON CONFLICT (recipient_id, dedupe_key) DO NOTHING
 RETURNING …` and falls back to a `SELECT` for the stored row when the insert was a no-op (the
-idempotent repeat).
+idempotent repeat). The postgres `countUnread` issues a single
+`SELECT COUNT(*) … WHERE recipient_id = $1 AND read_at IS NULL`
+([unread-badge-slice.md](unread-badge-slice.md) §9).
 
 ### 5.11 Notification channels (platform)
 

@@ -61,6 +61,17 @@ function createMemoryNotificationRepository(): NotificationRepository {
     async getNotificationById(id) {
       return getNotificationStore().notifications.get(id);
     },
+    async countUnread(recipientId) {
+      let unread = 0;
+
+      for (const notification of getNotificationStore().notifications.values()) {
+        if (notification.recipientId === recipientId && !notification.readAt) {
+          unread += 1;
+        }
+      }
+
+      return unread;
+    },
     async markNotificationRead(id, readAt) {
       const existing = getNotificationStore().notifications.get(id);
 

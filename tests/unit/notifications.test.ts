@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  countUnreadNotifications,
   createNotification,
   listNotifications,
   markAllNotificationsRead,
@@ -241,6 +242,26 @@ describe("notification service", () => {
     expect(await markAllNotificationsRead(member)).toBe(0);
     expect((await listNotifications(member)).every((notification) => notification.readAt)).toBe(true);
   });
+
+  it("counts only the member's unread notifications", async () => {
+    expect(await countUnreadNotifications(member)).toBe(0);
+
+    const first = await createNotification(input({ dedupeKey: "a" }));
+    await createNotification(input({ dedupeKey: "b" }));
+    await createNotification(input({ recipientId: other.id, dedupeKey: "c" }));
+
+    // Two unread for the member; the other member's row is never counted.
+    expect(await countUnreadNotifications(member)).toBe(2);
+    expect(await countUnreadNotifications(other)).toBe(1);
+
+    await markNotificationRead(member, first.notification.id);
+
+    expect(await countUnreadNotifications(member)).toBe(1);
+
+    await markAllNotificationsRead(member);
+
+    expect(await countUnreadNotifications(member)).toBe(0);
+  });
 });
 
 describe("notifications memory repository", () => {
@@ -276,5 +297,34 @@ describe("notifications memory repository", () => {
     expect(again.created).toBe(false);
     expect(again.notification.id).toBe("n-1");
     expect(await repository.listNotifications("u-1", { limit: 10 })).toHaveLength(1);
+  });
+
+  it("counts unread rows for the recipient only", async () => {
+    const repository = getMemoryNotificationRepository();
+
+    await repository.createNotification({
+      id: "n-1",
+      recipientId: "u-1",
+      type: "content_hidden",
+      title: "First",
+      body: "First body",
+      href: "/community",
+      dedupeKey: "a",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+    await repository.createNotification({
+      id: "n-2",
+      recipientId: "u-2",
+      type: "content_hidden",
+      title: "Second",
+      body: "Second body",
+      href: "/community",
+      dedupeKey: "b",
+      createdAt: "2026-01-02T00:00:00.000Z",
+    });
+
+    expect(await repository.countUnread("u-1")).toBe(1);
+    expect(await repository.countUnread("u-2")).toBe(1);
+    expect(await repository.countUnread("nobody")).toBe(0);
   });
 });

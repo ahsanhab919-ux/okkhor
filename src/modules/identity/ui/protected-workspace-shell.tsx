@@ -21,6 +21,7 @@ export function ProtectedWorkspaceShell({ eyebrow, title, children }: ProtectedW
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -55,6 +56,43 @@ export function ProtectedWorkspaceShell({ eyebrow, title, children }: ProtectedW
       active = false;
     };
   }, [pathname, router]);
+
+  useEffect(() => {
+    if (!session) {
+      setUnreadCount(0);
+      return;
+    }
+
+    let active = true;
+
+    async function refreshUnreadCount() {
+      try {
+        const response = await fetch("/api/notifications/unread-count", { credentials: "include" });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as { unread?: number };
+
+        if (active) {
+          setUnreadCount(typeof payload.unread === "number" ? payload.unread : 0);
+        }
+      } catch (error) {
+        console.error("[notification] Could not load the unread count.", error);
+      }
+    }
+
+    void refreshUnreadCount();
+
+    // The inbox's mark-read islands emit this after a successful write so the badge re-reads.
+    window.addEventListener("okkhor:inbox-changed", refreshUnreadCount);
+
+    return () => {
+      active = false;
+      window.removeEventListener("okkhor:inbox-changed", refreshUnreadCount);
+    };
+  }, [session, pathname]);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -121,7 +159,12 @@ export function ProtectedWorkspaceShell({ eyebrow, title, children }: ProtectedW
 
   return (
     <div className="app-shell">
-      <AppSidebar activeHref={pathname || "/community"} items={publicNavItems} onLogout={handleLogout} />
+      <AppSidebar
+        activeHref={pathname || "/community"}
+        items={publicNavItems}
+        onLogout={handleLogout}
+        unreadCount={unreadCount}
+      />
 
       <main className="app-main">
         <AppTopBar

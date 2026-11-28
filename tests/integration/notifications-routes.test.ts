@@ -10,6 +10,7 @@ import { POST as createThreadRoute } from "@/app/api/community/threads/route";
 import { POST as markReadRoute } from "@/app/api/notifications/[id]/read/route";
 import { GET as listNotificationsRoute } from "@/app/api/notifications/route";
 import { POST as markAllReadRoute } from "@/app/api/notifications/read-all/route";
+import { GET as unreadCountRoute } from "@/app/api/notifications/unread-count/route";
 import { PATCH as saveMyApplicationRoute, POST as createMyApplicationRoute } from "@/app/api/verification/application/route";
 import { PATCH as decideApplicationRoute } from "@/app/api/verification/applications/[id]/route";
 import { resetCommunityStoreForTesting } from "@/src/modules/community/infrastructure/community-store";
@@ -92,6 +93,12 @@ async function listInbox(token: string) {
   return { status: response.status, notifications: payload.notifications };
 }
 
+async function unreadCountFor(token: string) {
+  const response = await unreadCountRoute(jsonRequest("GET", undefined, token));
+
+  return { status: response.status, unread: ((await response.json()) as { unread: number }).unread };
+}
+
 const COMPLETE_APPLICATION = {
   displayName: "Dr. Nadia Islam",
   degrees: [{ degreeType: "PhD", institution: "University of Dhaka", year: "2018" }],
@@ -145,6 +152,11 @@ describe("notification routes", () => {
 
     expect(readAll.status).toBe(401);
     expect(((await readAll.json()) as ErrorPayload).error.code).toBe("AUTH_UNAUTHORIZED");
+
+    const count = await unreadCountRoute(jsonRequest("GET"));
+
+    expect(count.status).toBe(401);
+    expect(((await count.json()) as ErrorPayload).error.code).toBe("AUTH_UNAUTHORIZED");
   });
 
   it("notifies a thread author when their thread is hidden, delivers it, and lets them read it", async () => {
@@ -331,6 +343,50 @@ describe("notification routes", () => {
     const inbox = await listInbox(member.token);
 
     expect(inbox.notifications.every((notification) => notification.readAt)).toBe(true);
+  });
+
+  it("reports the caller's unread count, decrementing as notifications are read", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token);
+    const replyId = await createReplyFor(member.token, threadId);
+
+    expect((await unreadCountFor(member.token)).unread).toBe(0);
+
+    await moderateThreadRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(threadId));
+    await moderateReplyRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(replyId));
+
+    // Two unread notifications, and the count reflects the inbox's unread rows.
+    const counted = await unreadCountFor(member.token);
+
+    expect(counted.status).toBe(200);
+    expect(counted.unread).toBe(2);
+
+    const notificationId = (await listInbox(member.token)).notifications[0].id;
+
+    await markReadRoute(
+      jsonRequest("POST", undefined, member.token, `${NOTIFICATIONS_URL}/${notificationId}/read`),
+      idContext(notificationId),
+    );
+
+    expect((await unreadCountFor(member.token)).unread).toBe(1);
+
+    await markAllReadRoute(jsonRequest("POST", undefined, member.token));
+
+    expect((await unreadCountFor(member.token)).unread).toBe(0);
+  });
+
+  it("scopes the unread count to the caller", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const other = await persona("01798765432");
+    const threadId = await createThreadFor(member.token);
+
+    await moderateThreadRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(threadId));
+
+    expect((await unreadCountFor(member.token)).unread).toBe(1);
+    expect((await unreadCountFor(other.token)).unread).toBe(0);
+    expect((await unreadCountFor(admin.token)).unread).toBe(0);
   });
 
   it("returns 404 when marking another member's notification or an unknown id read", async () => {
