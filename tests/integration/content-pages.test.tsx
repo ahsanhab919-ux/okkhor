@@ -52,10 +52,24 @@ describe("content pages", () => {
   it("renders the list page with published items fetched on the server", async () => {
     await getMemoryContentRepository().createItem(publishedItem({ id: "a" }));
 
-    render(await ContentListPage());
+    render(await ContentListPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole("heading", { name: /The Knowledge/i })).toBeInTheDocument();
     expect(screen.getByText("Sediment cores reveal rapid shifts")).toBeInTheDocument();
+  });
+
+  it("links to the next page of archives when more items exist", async () => {
+    const items = Array.from({ length: 21 }, (_, index) =>
+      publishedItem({
+        id: `item-${index}`,
+        publishedAt: `2026-02-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`,
+      }),
+    );
+    await Promise.all(items.map((item) => getMemoryContentRepository().createItem(item)));
+
+    render(await ContentListPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByRole("link", { name: /Load More Archives/i })).toBeInTheDocument();
   });
 
   it("renders title, abstract, and Bangla summary on the detail page", async () => {
