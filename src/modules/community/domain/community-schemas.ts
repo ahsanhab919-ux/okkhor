@@ -39,7 +39,32 @@ export const moderateReplySchema = z.object({
   note: moderationNoteSchema,
 });
 
+/**
+ * The member report payload. `detail` is optional, free-text context for the moderator, and is
+ * bounded like the other long-form fields (`member-reporting-slice.md` §6.1).
+ */
+export const createReportSchema = z.object({
+  targetType: z.enum(["thread", "reply"], {
+    message: "A report target must be a thread or a reply.",
+  }),
+  targetId: z.string().trim().min(1, "A report target id is required."),
+  reason: z.enum(["spam", "harassment", "misinformation", "off-topic", "other"], {
+    message: "A report reason must be spam, harassment, misinformation, off-topic, or other.",
+  }),
+  detail: z.string().trim().max(1000, "The report detail is too long.").optional(),
+});
+
+/** The triage payload: close a report as `resolve` or `dismiss`, with an optional note. */
+export const resolveReportSchema = z.object({
+  action: z.enum(["resolve", "dismiss"], {
+    message: "A report action must be resolve or dismiss.",
+  }),
+  note: moderationNoteSchema,
+});
+
 export type CreateThreadPayload = z.infer<typeof createThreadSchema>;
 export type CreateReplyPayload = z.infer<typeof createReplySchema>;
 export type ModerateThreadPayload = z.infer<typeof moderateThreadSchema>;
 export type ModerateReplyPayload = z.infer<typeof moderateReplySchema>;
+export type CreateReportPayload = z.infer<typeof createReportSchema>;
+export type ResolveReportPayload = z.infer<typeof resolveReportSchema>;

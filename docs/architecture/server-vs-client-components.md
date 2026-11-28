@@ -67,6 +67,8 @@ Exactly these files carry `"use client"` (the interactive islands):
 | `src/modules/verification/ui/verification-review.tsx` | admin decision `useState`, approve/reject handlers, `useRouter` | drives `PATCH /api/verification/applications/[id]` |
 | `src/modules/community/ui/thread-form.tsx` | create-thread form `useState`, submit handler, `useRouter` | drives `POST /api/community/threads` |
 | `src/modules/community/ui/reply-form.tsx` | reply form `useState`, submit handler, `router.refresh()` | drives `POST /api/community/threads/[id]/replies` |
+| `src/modules/community/ui/report-controls.tsx` | member report form `useState` (reason/detail), submit handler | drives `POST /api/community/reports`; shows a confirmation, no navigation |
+| `src/modules/community/ui/report-triage-controls.tsx` | admin triage `useState` (note), resolve/dismiss handlers, `router.refresh()` | drives `POST /api/community/moderation/reports/[id]` |
 | `src/modules/search/ui/search-form.tsx` | search form `useState`, submit handler, `useRouter` | pushes query params to `/search` (server reads them) |
 | `src/modules/content/ui/item-editor-form.tsx` | authoring form `useState`, submit handler, `useRouter` | drives `POST`/`PATCH /api/content/items`; shows the transient AI English preview on publish |
 | `src/modules/library/ui/save-item-button.tsx` | Save/Saved toggle `useState`, handlers, `useRouter` | drives `POST`/`DELETE /api/library/items`; also exports the `RemoveSavedItemButton` used on `/library` |
@@ -132,6 +134,17 @@ server-safe `ContentItemList` (`content-views.tsx`) and `ThreadList`
 `/community/[id]` detail pages gained tag/category links but remain server components (the
 only island on the detail pages is the pre-existing `SaveItemButton` on `/content/[id]`), so
 browse ships no JavaScript beyond the shared chrome.
+
+The member-reporting slice adds **two** islands. `report-controls.tsx` is the member-side
+island on `/community/[id]`: it owns the reason select, the optional detail, and a reported
+flag, and posts one `POST /api/community/reports`, then shows an inline confirmation rather
+than navigating. `report-triage-controls.tsx` is the admin-side island on
+`/admin/community/reports`: it owns the note plus a busy flag and posts one
+`POST /api/community/moderation/reports/[id]`, then calls `router.refresh()`. Both thread and
+admin pages stay server components — they resolve the viewer and the report queue server-side
+and pass down only serializable props (the target id, the report id); the queue reuses the
+pre-existing `ModerationControls` island for the inline hide/restore action, so no new
+visibility boundary is introduced.
 
 The password-reset-delivery slice adds **one** island — `email-settings-form.tsx`, the owner-only
 account-email editor on `/profile`. It is a tiny `"use client"` leaf that owns only the email

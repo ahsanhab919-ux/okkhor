@@ -3,10 +3,14 @@ import { Pool } from "pg";
 import { getThreadCursor } from "@/src/modules/community/domain/community-pagination";
 import type {
   CategoryCount,
+  CommunityReport,
   CommunityRepository,
   CommunityReply,
   CommunityThread,
   ModerationState,
+  ReportReason,
+  ReportStatus,
+  ReportTargetType,
 } from "@/src/modules/community/domain/community-types";
 import { getPostgresPoolConfig } from "@/src/modules/platform/infrastructure/postgres-config";
 
@@ -43,6 +47,20 @@ type PostgresCategoryCountRow = {
   count: number;
 };
 
+type PostgresCommunityReportRow = {
+  id: string;
+  reporter_id: string;
+  target_type: string;
+  target_id: string;
+  reason: string;
+  detail: string | null;
+  status: string;
+  created_at: string;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  resolution_note: string | null;
+};
+
 declare global {
   var __okkhorCommunityPool: Pool | undefined;
   var __okkhorPostgresCommunityRepository: CommunityRepository | undefined;
@@ -76,6 +94,22 @@ function mapReplyRow(row: PostgresCommunityReplyRow): CommunityReply {
     moderatedBy: row.moderated_by ?? undefined,
     moderatedAt: row.moderated_at ?? undefined,
     moderationNote: row.moderation_note ?? undefined,
+  };
+}
+
+function mapReportRow(row: PostgresCommunityReportRow): CommunityReport {
+  return {
+    id: row.id,
+    reporterId: row.reporter_id,
+    targetType: row.target_type as ReportTargetType,
+    targetId: row.target_id,
+    reason: row.reason as ReportReason,
+    detail: row.detail ?? undefined,
+    status: row.status as ReportStatus,
+    createdAt: row.created_at,
+    resolvedBy: row.resolved_by ?? undefined,
+    resolvedAt: row.resolved_at ?? undefined,
+    resolutionNote: row.resolution_note ?? undefined,
   };
 }
 
@@ -308,6 +342,95 @@ function createPostgresCommunityRepository(pool: Pool): CommunityRepository {
           reply.moderatedBy ?? null,
           reply.moderatedAt ?? null,
           reply.moderationNote ?? null,
+        ],
+      );
+    },
+    async createReport(report) {
+      await pool.query(
+        `
+          INSERT INTO community_reports (
+            id, reporter_id, target_type, target_id, reason, detail, status, created_at,
+            resolved_by, resolved_at, resolution_note
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          ON CONFLICT (reporter_id, target_type, target_id) DO NOTHING
+        `,
+        [
+          report.id,
+          report.reporterId,
+          report.targetType,
+          report.targetId,
+          report.reason,
+          report.detail ?? null,
+          report.status,
+          report.createdAt,
+          report.resolvedBy ?? null,
+          report.resolvedAt ?? null,
+          report.resolutionNote ?? null,
+        ],
+      );
+
+      // Read back the stored row so a duplicate report returns the pre-existing one, not the input.
+      const result = await pool.query<PostgresCommunityReportRow>(
+        `
+          SELECT * FROM community_reports
+          WHERE reporter_id = $1 AND target_type = $2 AND target_id = $3
+          LIMIT 1
+        `,
+        [report.reporterId, report.targetType, report.targetId],
+      );
+
+      return mapReportRow(result.rows[0]);
+    },
+    async getReportById(id) {
+      const result = await pool.query<PostgresCommunityReportRow>(
+        "SELECT * FROM community_reports WHERE id = $1 LIMIT 1",
+        [id],
+      );
+
+      return result.rows[0] ? mapReportRow(result.rows[0]) : undefined;
+    },
+    async listReports({ status, limit }) {
+      const values: unknown[] = [];
+      const conditions: string[] = [];
+
+      if (status !== undefined) {
+        values.push(status);
+        conditions.push(`status = $${values.length}`);
+      }
+
+      values.push(limit);
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+      const result = await pool.query<PostgresCommunityReportRow>(
+        `
+          SELECT * FROM community_reports
+          ${whereClause}
+          ORDER BY created_at DESC, id DESC
+          LIMIT $${values.length}
+        `,
+        values,
+      );
+
+      return result.rows.map(mapReportRow);
+    },
+    async updateReport(report) {
+      await pool.query(
+        `
+          UPDATE community_reports SET
+            status = $2,
+            resolved_by = $3,
+            resolved_at = $4,
+            resolution_note = $5
+          WHERE id = $1
+        `,
+        [
+          report.id,
+          report.status,
+          report.resolvedBy ?? null,
+          report.resolvedAt ?? null,
+          report.resolutionNote ?? null,
         ],
       );
     },

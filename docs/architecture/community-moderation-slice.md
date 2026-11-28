@@ -85,7 +85,8 @@ Acceptance criteria:
 - **permanent deletion** — this slice hides (reversible); a hard delete is a separate, riskier
   operation with no undo
 - **member reporting / flagging** — a report queue needs a new table, a new member write path, and
-  its own triage rules; deferred rather than half-built
+  its own triage rules; deferred rather than half-built (**resolved** by
+  [member-reporting-slice.md](member-reporting-slice.md))
 - editing another member's thread or reply (leaving a moderator edit note is a different feature)
 - per-member rate limiting, throttling, or automatic spam detection (no new ephemeral state)
 - notifications to an author that their content was hidden
@@ -372,7 +373,8 @@ Uses only `ADR-004` (PostgreSQL) and the already-built community module.
    reveals that content was moderated. The visibility filter lives in the repository reads (§5, §9).
 4. **Member reporting is out of scope.** No flag/report path ships in this slice; a report queue
    needs its own table, member write path, and triage rules, and is deferred as a candidate future
-   slice (§4).
+   slice (§4). **Resolved** by [member-reporting-slice.md](member-reporting-slice.md): the report
+   table, the member report path, and the admin triage queue now ship in that slice.
 5. **Entry points — a queue and inline controls.** Administrators moderate from
    `/admin/community` (the queue) and from `/admin/community/[id]` (a thread with all of its
    replies), and a member's thread page shows the same inline controls to an administrator. The two

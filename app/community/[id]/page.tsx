@@ -6,6 +6,7 @@ import { getThread } from "@/src/modules/community/application/community-service
 import { canModerate } from "@/src/modules/community/domain/community-authorization";
 import { CommunityError } from "@/src/modules/community/domain/community-errors";
 import { ModerationControls } from "@/src/modules/community/ui/moderation-controls";
+import { ReportControls } from "@/src/modules/community/ui/report-controls";
 import { ReplyForm } from "@/src/modules/community/ui/reply-form";
 
 import { getCommunityViewer } from "../../community-session";
@@ -28,6 +29,7 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
 
   const viewer = await getCommunityViewer();
   const moderator = viewer ? canModerate(viewer.user.roles) : false;
+  const signedIn = Boolean(viewer);
 
   return (
     <section className="content-band">
@@ -49,6 +51,12 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
         <p>{thread.body}</p>
       </article>
 
+      {signedIn ? (
+        <div className="discussion-card__actions">
+          <ReportControls id={thread.id} target="thread" />
+        </div>
+      ) : null}
+
       {thread.locked ? (
         <p className="session-banner" role="status">
           This thread is locked. New replies are closed.
@@ -65,6 +73,7 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
               <li key={reply.id} className="activity-entry">
                 <p>{reply.body}</p>
                 <span>{reply.createdAt.slice(0, 10)}</span>
+                {signedIn ? <ReportControls id={reply.id} target="reply" /> : null}
                 {moderator ? (
                   <ModerationControls
                     id={reply.id}

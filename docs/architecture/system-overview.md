@@ -27,6 +27,8 @@ At the current stage the deployed product is intentionally narrow:
 - a per-member "My Library" (`/library`) over saved research items
 - member profile pages — the owner's `/profile` and a public footprint at `/u/[id]`
 - an administrator moderation console (`/admin/community`) over the discussion surface
+- a member report path over threads and replies, with an administrator triage queue
+  (`/admin/community/reports`)
 - browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
   and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe
@@ -138,7 +140,11 @@ business state is enforced inside the application layer (`ADR-001`: authorizatio
 be enforced at server boundaries inside the monolith). The administrator consoles follow the
 same rule: the `/admin/community` layout resolves the viewer in the composition root
 (`app/community-session.ts`) and renders the restricted screen unless `canModerate` passes,
-and the moderation routes re-check the same admin-only gate server-side.
+and the moderation routes re-check the same admin-only gate server-side. The member report
+path adds a member write surface on the thread page and an administrator triage queue at
+`/admin/community/reports` behind the same gate; a filed report never changes a target's
+visibility — only an explicit hide/restore action does
+([member-reporting-slice.md](member-reporting-slice.md) §7).
 
 ## 7. Module Map
 

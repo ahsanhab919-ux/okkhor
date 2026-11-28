@@ -23,6 +23,9 @@ export default async function AdminCommunityPage() {
           <p className="eyebrow eyebrow--blue">Moderation</p>
           <h1>Community Queue</h1>
         </div>
+        <Link className="inline-link" href="/admin/community/reports">
+          Reports
+        </Link>
         <Link className="inline-link" href="/community">
           Back to the community
         </Link>
