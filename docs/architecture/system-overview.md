@@ -46,6 +46,8 @@ At the current stage the deployed product is intentionally narrow:
   the process resolves — the driver, the resolved provider, the model, the request timeout, and
   whether the API key is set — together with how much of the archive carries a Bangla summary, and
   runs no pipeline
+- an administrator content register (`/admin/content`) listing every research item in the archive
+  with its classification, status, and summary state, filterable by status, read-only
 - browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
   and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe
