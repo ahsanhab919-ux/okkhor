@@ -259,14 +259,31 @@ export function AppTopBar({
   );
 }
 
+/**
+ * The Stitch "Expert Onboarding" stepper rail: the four verification stages as nav rows, with the
+ * stage the applicant is actually on highlighted, plus the real current-progress bar. Every value
+ * comes from the `VerificationStep` statuses the caller derives from the stored application.
+ */
 export function StepRail({ steps }: { steps: VerificationStep[] }) {
+  const total = steps.length;
+  const activeIndex = steps.findIndex((step) => step.status === "active");
+  const completedCount = steps.filter((step) => step.status === "completed").length;
+  // A stage counts as reached once it is complete, or once it is the one in progress.
+  const reachedCount = completedCount + (activeIndex === -1 ? 0 : 1);
+  const currentStep = activeIndex === -1 ? total : activeIndex + 1;
+  const progress = total === 0 ? 0 : Math.round((reachedCount / total) * 100);
+
   return (
     <aside className="verification-rail">
-      <p className="eyebrow eyebrow--blue">SCHOLARLY VERIFICATION</p>
-      <h2>Step 2 of 4</h2>
+      <div className="verification-rail__head">
+        <p className="eyebrow eyebrow--blue">Onboarding</p>
+        <h2 className="verification-rail__title">Expert Verification</h2>
+      </div>
+
       <p className="verification-rail__summary">
         Build trust with learners by showing verifiable evidence of scholarship and research authority.
       </p>
+
       <ol className="verification-steps">
         {steps.map((step) => (
           <li key={step.title} className={`verification-step verification-step--${step.status}`}>
@@ -280,6 +297,23 @@ export function StepRail({ steps }: { steps: VerificationStep[] }) {
           </li>
         ))}
       </ol>
+
+      <div className="verification-rail__progress">
+        <p className="eyebrow">Current Progress</p>
+        <div
+          aria-label="Verification progress"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={progress}
+          className="verification-progress"
+          role="progressbar"
+        >
+          <span className="verification-progress__fill" style={{ width: `${progress}%` }} />
+        </div>
+        <p className="verification-rail__progress-meta">
+          Step {currentStep} of {total} — {progress}% complete
+        </p>
+      </div>
     </aside>
   );
 }

@@ -3117,3 +3117,110 @@ code {
     font-size: 1.3rem;
   }
 }
+
+/* Scholarly verification — the Stitch "Expert Onboarding" stepper rail. The stage the applicant is
+   actually on carries a left accent rule and a gradient wash, and the progress card is filled from
+   the same step state. */
+.verification-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.verification-rail__head {
+  display: grid;
+  gap: 4px;
+}
+
+.verification-rail__title {
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.2;
+}
+
+.verification-steps {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.verification-step {
+  gap: 14px;
+  padding: 14px 16px;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-outline);
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.verification-step strong {
+  display: block;
+  font-family: var(--font-headline);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.verification-step p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.verification-step--active {
+  border-left-color: var(--color-primary);
+  background: linear-gradient(90deg, rgba(173, 198, 255, 0.12) 0%, transparent 100%);
+  color: var(--color-on-surface);
+}
+
+.verification-step--active strong {
+  color: var(--color-primary);
+}
+
+.verification-step--completed {
+  color: var(--color-on-surface-variant);
+}
+
+.verification-step__icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: var(--radius-sm);
+}
+
+.verification-rail__progress {
+  margin-top: auto;
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: linear-gradient(160deg, var(--color-surface-container) 0%, var(--color-surface-container-lowest) 100%);
+}
+
+.verification-rail__progress .eyebrow {
+  margin: 0;
+  letter-spacing: 0.2em;
+}
+
+.verification-progress {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-container-highest);
+  overflow: hidden;
+}
+
+.verification-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  box-shadow: 0 0 10px rgba(173, 198, 255, 0.5);
+  transition: width 0.3s ease;
+}
+
+.verification-rail__progress-meta {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.78rem;
+}
