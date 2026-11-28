@@ -24,15 +24,18 @@ export default async function StudioItemPage({ params }: StudioItemPageProps) {
 
   return (
     <section className="content-band">
-      <div className="section-heading">
+      <header className="studio-hero">
         <div>
           <p className="eyebrow eyebrow--blue">Authoring</p>
-          <h1>Edit research item</h1>
+          <h1 className="studio-hero__title">Edit research item</h1>
+          <p className="studio-hero__lead">
+            Update the metadata or the Bangla summary, or switch the item between draft and published.
+          </p>
         </div>
         <Link className="inline-link" href="/studio">
           Back to the studio
         </Link>
-      </div>
+      </header>
 
       <ItemEditorForm item={item} />
     </section>
