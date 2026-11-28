@@ -26,6 +26,7 @@ import {
 import type {
   AuthSessionRecord,
   AuthSuccess,
+  MemberRosterEntry,
   PasswordResetRecord,
   PublicProfile,
   UserProfile,
@@ -252,6 +253,28 @@ export async function getPublicProfile(id: string): Promise<PublicProfile | unde
     roles: user.roles,
     createdAt: user.createdAt,
   };
+}
+
+/**
+ * The administrator roster: every member, newest first, projected to the fields an administrator
+ * needs (`MemberRosterEntry`) — never the phone number, email, or password metadata. Only an
+ * administrator may read it, and the check is re-applied here so the privilege decision never
+ * rests solely on the caller (`grantUserRole`'s rule, `module-boundaries.md` §7).
+ */
+export async function listMembers(actor: { id: string; roles: UserRole[] }): Promise<MemberRosterEntry[]> {
+  if (!actor.roles.includes("admin")) {
+    throw new AuthError("Only administrators can list members.", "AUTH_FORBIDDEN", 403);
+  }
+
+  const users = await getAuthRepository().listUsers();
+
+  return users.map((user) => ({
+    id: user.id,
+    displayName: user.displayName,
+    roles: user.roles,
+    createdAt: user.createdAt,
+    lastLoginAt: user.lastLoginAt,
+  }));
 }
 
 export async function refreshUserSession(refreshToken: string): Promise<AuthSuccess> {
