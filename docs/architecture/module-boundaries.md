@@ -187,6 +187,8 @@ src/modules/community/
                   reply-form.tsx             (reply island)
                   thread-list.tsx            (shared server-safe discussion list)
                   moderation-controls.tsx    (admin hide/restore + lock/unlock island)
+                  report-controls.tsx        (member report island)
+                  report-triage-controls.tsx (admin resolve/dismiss island)
 ```
 
 `community` owns member-authored discussion: threads and their flat, chronological replies. It
@@ -206,6 +208,17 @@ The **topic-browse slice** likewise stays internal to `community`: it adds two v
 repository reads (the distinct-category rollup and the threads-by-category list) and no new
 module, entity, or edge. The category pages are composed in `app/categories/**` and reuse the
 existing `ThreadList` presentational component.
+
+The **member-reporting slice** also stays internal to `community` and adds **no new module and
+no cross-module edge**: the report entity lives in the existing `community-types.ts`, the two
+error codes in `community-errors.ts`, the `createReportSchema`/`resolveReportSchema` in
+`community-schemas.ts`, the use cases in `community-service.ts`, the repository methods in
+`community-store.ts`/`postgres-community-repository.ts`, and two new `ui` islands
+(`report-controls.tsx` for the member, `report-triage-controls.tsx` for the admin). The member
+write path is composed at `app/community/[id]/page.tsx`, the admin queue at
+`app/admin/community/reports/page.tsx`, and the actor is still resolved by
+`app/community-session.ts`; reports reuse the moderation slice's hide/restore use cases for the
+inline action rather than introducing a new visibility mechanism.
 
 ### 5.7 `search` — implemented, fully layered
 

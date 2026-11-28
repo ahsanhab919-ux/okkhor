@@ -593,6 +593,50 @@ from `okkhor_access`. See [password-reset-delivery-slice.md](password-reset-deli
 - **Errors:** `AUTH_UNAUTHORIZED` (401 — no/invalid session), `AUTH_VALIDATION_FAILED` (400 — a
   malformed email).
 
+### 4.34 `POST /api/community/reports`
+
+A member reports a **visible** thread or reply. Requires an authenticated session (any role);
+reporting is role-free, like posting. See
+[member-reporting-slice.md](member-reporting-slice.md) §6.1.
+
+- **Request:** `{ "targetType": "thread" | "reply", "targetId": "…", "reason": "…", "detail": "…" }`
+  — `reason` is one of `spam`, `harassment`, `misinformation`, `off-topic`, `other`; `detail` is
+  optional (trimmed, ≤ 1000).
+- **Success** `200`: `{ "report": { "…CommunityReport…" } }` — the new report, or the caller's
+  **pre-existing** report for the same item (idempotent: one report per member per item). The
+  response always carries `status: "open"` for a new report.
+- **Errors:** `COMMUNITY_VALIDATION_FAILED` (400), `AUTH_UNAUTHORIZED` (401),
+  `COMMUNITY_REPORT_TARGET_NOT_FOUND` (404 — the target is unknown **or** hidden, the same answer a
+  member read gives), `COMMUNITY_UNKNOWN` (500).
+
+### 4.35 `GET /api/community/moderation/reports`
+
+The report queue: reports with the content they point at, newest first. Requires the `admin` role.
+See [member-reporting-slice.md](member-reporting-slice.md) §6.2.
+
+- **Query:** `?status=&limit=`
+  - `status` — `open` | `resolved` | `dismissed`; default `open`.
+  - `limit` — page size, default `20`, clamped to `[1, 50]`.
+- **Success** `200`:
+  `{ "entries": [ { "report": { "…CommunityReport…" }, "thread": { "…CommunityThread…" },
+  "reply": { "…CommunityReply…" } } ] }` — `reply` is present only for a reply report. This is a
+  moderator-only surface, so `report.reporterId` is present here and stripped from every
+  member-facing response.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_UNKNOWN` (500).
+
+### 4.36 `POST /api/community/moderation/reports/[id]`
+
+Close a report as resolved or dismissed. Requires the `admin` role. Closing a report does **not**
+change the reported content's visibility — hiding stays a separate moderation action (§4.31–§4.32).
+See [member-reporting-slice.md](member-reporting-slice.md) §6.3.
+
+- **Request:** `{ "action": "resolve" | "dismiss", "note": "…" }` — `action` is required; `note` is
+  optional (trimmed, ≤ 500).
+- **Success** `200`: `{ "report": { "…CommunityReport…" } }` — the closed report, with
+  `status`/`resolvedBy`/`resolvedAt` (and `resolutionNote` when supplied).
+- **Errors:** `COMMUNITY_VALIDATION_FAILED` (400), `AUTH_UNAUTHORIZED` (401),
+  `COMMUNITY_FORBIDDEN` (403), `COMMUNITY_REPORT_NOT_FOUND` (404), `COMMUNITY_UNKNOWN` (500).
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, `password-reset/request`, and `password-reset/confirm`. The client
@@ -666,6 +710,8 @@ The community endpoints use a parallel set of codes, whose executable source of 
 | `COMMUNITY_FORBIDDEN` | 403 | Authenticated user does not hold the `admin` role |
 | `COMMUNITY_THREAD_NOT_FOUND` | 404 | Thread id is unknown (or, on a member read, moderated to `hidden`) |
 | `COMMUNITY_REPLY_NOT_FOUND` | 404 | Reply id is unknown |
+| `COMMUNITY_REPORT_TARGET_NOT_FOUND` | 404 | The report target is unknown **or** hidden (the same answer a member read gives) |
+| `COMMUNITY_REPORT_NOT_FOUND` | 404 | Report id is unknown |
 | `COMMUNITY_THREAD_LOCKED` | 409 | A reply was attempted on a locked thread |
 | `COMMUNITY_UNKNOWN` | 500 | Unhandled failure (fallback) |
 

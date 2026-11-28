@@ -4,23 +4,28 @@ import { registerUser } from "@/src/modules/identity/application/auth-service";
 import { resetAuthStoreForTesting } from "@/src/modules/identity/infrastructure/auth-store";
 import {
   createReply,
+  createReport,
   createThread,
   getModerationThread,
   getThread,
   listModerationQueue,
+  listModerationReports,
   listThreads,
   listThreadsByAuthor,
   moderateReply,
   moderateThread,
+  resolveReport,
 } from "@/src/modules/community/application/community-service";
 import { canModerate } from "@/src/modules/community/domain/community-authorization";
 import { CommunityError } from "@/src/modules/community/domain/community-errors";
 import { decodeThreadCursor, encodeThreadCursor } from "@/src/modules/community/domain/community-pagination";
 import {
   createReplySchema,
+  createReportSchema,
   createThreadSchema,
   moderateReplySchema,
   moderateThreadSchema,
+  resolveReportSchema,
 } from "@/src/modules/community/domain/community-schemas";
 import type {
   CommunityActor,
@@ -524,6 +529,277 @@ describe("community topic browse repository", () => {
     expect(await repository.listThreadsByCategory("missing", { limit: 10 })).toEqual({
       threads: [],
       nextCursor: undefined,
+    });
+  });
+});
+
+describe("community reporting", () => {
+  beforeEach(() => {
+    resetAuthStoreForTesting();
+    resetCommunityStoreForTesting();
+  });
+
+  it("validates the report payloads", () => {
+    for (const reason of ["spam", "harassment", "misinformation", "off-topic", "other"] as const) {
+      expect(
+        createReportSchema.parse({ targetType: "thread", targetId: "t1", reason }).reason,
+      ).toBe(reason);
+    }
+
+    expect(createReportSchema.parse({ targetType: "reply", targetId: "r1", reason: "spam" })).toEqual({
+      targetType: "reply",
+      targetId: "r1",
+      reason: "spam",
+    });
+    expect(createReportSchema.parse({ targetType: "thread", targetId: " t1 ", reason: "spam" }).targetId).toBe(
+      "t1",
+    );
+    expect(
+      createReportSchema.parse({ targetType: "thread", targetId: "t1", reason: "spam", detail: " ok " }).detail,
+    ).toBe("ok");
+
+    expect(() => createReportSchema.parse({ targetType: "content", targetId: "t1", reason: "spam" })).toThrow();
+    expect(() => createReportSchema.parse({ targetType: "thread", targetId: "", reason: "spam" })).toThrow();
+    expect(() => createReportSchema.parse({ targetType: "thread", targetId: "t1", reason: "meh" })).toThrow();
+    expect(() =>
+      createReportSchema.parse({ targetType: "thread", targetId: "t1", reason: "spam", detail: "x".repeat(1001) }),
+    ).toThrow();
+
+    expect(resolveReportSchema.parse({ action: "resolve" }).action).toBe("resolve");
+    expect(resolveReportSchema.parse({ action: "dismiss" }).action).toBe("dismiss");
+    expect(resolveReportSchema.parse({ action: "resolve", note: "  done  " }).note).toBe("done");
+    expect(() => resolveReportSchema.parse({ action: "close" })).toThrow();
+    expect(() => resolveReportSchema.parse({ action: "resolve", note: "x".repeat(501) })).toThrow();
+  });
+
+  it("stores an open report for a visible target", async () => {
+    const thread = await createThread(member, { title: "T", body: "b" });
+    const report = await createReport(other, {
+      targetType: "thread",
+      targetId: thread.id,
+      reason: "spam",
+      detail: "not ok",
+    });
+
+    expect(report).toMatchObject({
+      reporterId: "u-other",
+      targetType: "thread",
+      targetId: thread.id,
+      reason: "spam",
+      detail: "not ok",
+      status: "open",
+    });
+    expect(report.createdAt).toBeTruthy();
+  });
+
+  it("is idempotent: a repeat report returns the same report and adds no row", async () => {
+    const thread = await createThread(member, { title: "T", body: "b" });
+    const first = await createReport(other, { targetType: "thread", targetId: thread.id, reason: "spam" });
+    const second = await createReport(other, {
+      targetType: "thread",
+      targetId: thread.id,
+      reason: "harassment",
+    });
+
+    expect(second.id).toBe(first.id);
+    expect(second.reason).toBe("spam");
+
+    const entries = await listModerationReports(admin);
+
+    expect(entries).toHaveLength(1);
+  });
+
+  it("returns 404 for an unknown or hidden target", async () => {
+    await expect(
+      createReport(member, { targetType: "thread", targetId: "missing", reason: "spam" }),
+    ).rejects.toMatchObject({ code: "COMMUNITY_REPORT_TARGET_NOT_FOUND", status: 404 });
+
+    const thread = await createThread(member, { title: "T", body: "b" });
+    const reply = await createReply(other, thread.id, { body: "hide me" });
+
+    await moderateThread(admin, thread.id, { action: "hide" });
+    await moderateReply(admin, reply.id, { action: "hide" });
+
+    await expect(
+      createReport(member, { targetType: "thread", targetId: thread.id, reason: "spam" }),
+    ).rejects.toMatchObject({ code: "COMMUNITY_REPORT_TARGET_NOT_FOUND", status: 404 });
+    await expect(
+      createReport(member, { targetType: "reply", targetId: reply.id, reason: "spam" }),
+    ).rejects.toMatchObject({ code: "COMMUNITY_REPORT_TARGET_NOT_FOUND", status: 404 });
+  });
+
+  it("rejects a non-administrator from every triage use case with 403", async () => {
+    await expect(listModerationReports(member)).rejects.toMatchObject({
+      code: "COMMUNITY_FORBIDDEN",
+      status: 403,
+    });
+    await expect(resolveReport(member, "r1", { action: "resolve" })).rejects.toMatchObject({
+      code: "COMMUNITY_FORBIDDEN",
+      status: 403,
+    });
+  });
+
+  it("queues reports with their content and closes them as resolved or dismissed", async () => {
+    const thread = await createThread(member, { title: "Reported thread", body: "b" });
+    const reply = await createReply(member, thread.id, { body: "reported reply" });
+
+    const threadReport = await createReport(other, {
+      targetType: "thread",
+      targetId: thread.id,
+      reason: "spam",
+    });
+    const replyReport = await createReport(member, {
+      targetType: "reply",
+      targetId: reply.id,
+      reason: "harassment",
+    });
+
+    const entries = await listModerationReports(admin);
+
+    expect(entries.map((entry) => entry.report.id).sort()).toEqual(
+      [replyReport.id, threadReport.id].sort(),
+    );
+
+    const replyEntry = entries.find((entry) => entry.report.targetType === "reply");
+    const threadEntry = entries.find((entry) => entry.report.targetType === "thread");
+
+    expect(replyEntry).toMatchObject({
+      report: { targetType: "reply", reporterId: "u-member" },
+      thread: { id: thread.id },
+      reply: { id: reply.id },
+    });
+    expect(threadEntry).toMatchObject({
+      report: { targetType: "thread", reporterId: "u-other" },
+      thread: { id: thread.id },
+    });
+    expect(threadEntry?.reply).toBeUndefined();
+
+    const resolved = await resolveReport(admin, threadReport.id, {
+      action: "resolve",
+      note: "hidden",
+    });
+
+    expect(resolved).toMatchObject({
+      status: "resolved",
+      resolvedBy: "u-admin",
+      resolutionNote: "hidden",
+    });
+    expect(resolved.resolvedAt).toBeTruthy();
+
+    const dismissed = await resolveReport(admin, replyReport.id, { action: "dismiss" });
+
+    expect(dismissed.status).toBe("dismissed");
+    expect((await listModerationReports(admin)).length).toBe(0);
+    expect((await listModerationReports(admin, { status: "resolved" })).map((e) => e.report.id)).toEqual([
+      threadReport.id,
+    ]);
+  });
+
+  it("returns 404 for an unknown report id", async () => {
+    await expect(resolveReport(admin, "missing", { action: "resolve" })).rejects.toMatchObject({
+      code: "COMMUNITY_REPORT_NOT_FOUND",
+      status: 404,
+    });
+  });
+
+  it("keeps the reporter identity on the moderation queue only", async () => {
+    const thread = await createThread(member, { title: "T", body: "b" });
+
+    await createReport(other, { targetType: "thread", targetId: thread.id, reason: "spam" });
+
+    const detail = await getThread(thread.id);
+
+    expect(JSON.stringify(detail)).not.toContain("reporterId");
+
+    const entries = await listModerationReports(admin);
+
+    expect(entries[0].report.reporterId).toBe("u-other");
+  });
+
+  it("closing a report does not change the content's visibility", async () => {
+    const thread = await createThread(member, { title: "T", body: "b" });
+    const report = await createReport(other, { targetType: "thread", targetId: thread.id, reason: "spam" });
+
+    await resolveReport(admin, report.id, { action: "resolve" });
+
+    expect((await getThread(thread.id)).thread.moderationState).toBe("visible");
+  });
+});
+
+describe("community reporting repository", () => {
+  beforeEach(() => {
+    resetCommunityStoreForTesting();
+  });
+
+  const baseReport = {
+    reporterId: "u-1",
+    targetType: "thread" as const,
+    targetId: "t1",
+    reason: "spam" as const,
+    status: "open" as const,
+  };
+
+  it("creates idempotently and returns the pre-existing report", async () => {
+    const repository = getMemoryCommunityRepository();
+
+    const created = await repository.createReport({
+      ...baseReport,
+      id: "rep-1",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(created.id).toBe("rep-1");
+
+    const duplicate = await repository.createReport({
+      ...baseReport,
+      id: "rep-2",
+      reason: "harassment",
+      createdAt: "2026-01-02T00:00:00.000Z",
+    });
+
+    expect(duplicate.id).toBe("rep-1");
+    expect(duplicate.reason).toBe("spam");
+    expect(await repository.listReports({ limit: 10 })).toHaveLength(1);
+  });
+
+  it("filters by status, orders newest first, and updates the triage columns", async () => {
+    const repository = getMemoryCommunityRepository();
+
+    await repository.createReport({ ...baseReport, id: "a", createdAt: "2026-01-01T00:00:00.000Z" });
+    await repository.createReport({
+      ...baseReport,
+      id: "b",
+      targetId: "t2",
+      status: "resolved",
+      createdAt: "2026-01-03T00:00:00.000Z",
+    });
+    await repository.createReport({ ...baseReport, id: "c", targetId: "t3", createdAt: "2026-01-02T00:00:00.000Z" });
+
+    expect((await repository.listReports({ limit: 10 })).map((report) => report.id)).toEqual(["b", "c", "a"]);
+    expect((await repository.listReports({ limit: 10, status: "open" })).map((report) => report.id)).toEqual([
+      "c",
+      "a",
+    ]);
+    expect((await repository.listReports({ limit: 10, status: "resolved" })).map((report) => report.id)).toEqual([
+      "b",
+    ]);
+
+    const stored = (await repository.getReportById("a")) as NonNullable<
+      Awaited<ReturnType<typeof repository.getReportById>>
+    >;
+
+    await repository.updateReport({
+      ...stored,
+      status: "dismissed",
+      resolvedBy: "u-admin",
+      resolvedAt: "2026-02-01T00:00:00.000Z",
+      resolutionNote: "no action",
+    });
+
+    expect(await repository.getReportById("a")).toMatchObject({
+      status: "dismissed",
+      resolvedBy: "u-admin",
+      resolutionNote: "no action",
     });
   });
 });

@@ -10,22 +10,29 @@ import {
 } from "@/src/modules/community/domain/community-pagination";
 import {
   createReplySchema,
+  createReportSchema,
   createThreadSchema,
   moderateReplySchema,
   moderateThreadSchema,
+  resolveReportSchema,
 } from "@/src/modules/community/domain/community-schemas";
 import type {
   CategoryCount,
   CommunityActor,
+  CommunityReport,
   CommunityReply,
   CommunityThread,
   CommunityThreadDetail,
   CommunityThreadSummary,
   CreateReplyInput,
+  CreateReportInput,
   CreateThreadInput,
   ModerateReplyInput,
   ModerateThreadInput,
   ModerationAction,
+  ReportQueueEntry,
+  ReportStatus,
+  ResolveReportInput,
 } from "@/src/modules/community/domain/community-types";
 import { getCommunityRepository } from "@/src/modules/community/infrastructure/community-repository";
 
@@ -310,6 +317,137 @@ export async function moderateReply(
   };
 
   await repository.updateReplyModeration(updated);
+
+  return updated;
+}
+
+/**
+ * Confirms a report target is a real, visible item. An unknown **or hidden** target is reported as
+ * not found, the same answer a member read gives, so the report path cannot disclose moderated
+ * content (`member-reporting-slice.md` §7).
+ */
+async function assertReportTargetVisible(targetType: CreateReportInput["targetType"], targetId: string) {
+  const repository = getCommunityRepository();
+  const target =
+    targetType === "thread"
+      ? await repository.getThreadById(targetId)
+      : await repository.getReplyById(targetId);
+
+  if (!target || target.moderationState === "hidden") {
+    throw new CommunityError(
+      "The reported item was not found.",
+      "COMMUNITY_REPORT_TARGET_NOT_FOUND",
+      404,
+    );
+  }
+}
+
+/**
+ * A member reports a thread or reply. Reporting is role-free, like posting, and idempotent: a repeat
+ * report for the same item returns the caller's existing report and creates no row
+ * (`member-reporting-slice.md` §5, §13 decision 4).
+ */
+export async function createReport(
+  actor: CommunityActor,
+  input: CreateReportInput,
+): Promise<CommunityReport> {
+  const parsed = parseCommunitySchema(createReportSchema, input);
+
+  await assertReportTargetVisible(parsed.targetType, parsed.targetId);
+
+  const report: CommunityReport = {
+    id: randomUUID(),
+    reporterId: actor.id,
+    targetType: parsed.targetType,
+    targetId: parsed.targetId,
+    reason: parsed.reason,
+    detail: parsed.detail || undefined,
+    status: "open",
+    createdAt: new Date().toISOString(),
+  };
+
+  return getCommunityRepository().createReport(report);
+}
+
+export type ListModerationReportsInput = {
+  status?: ReportStatus;
+  limit?: number;
+};
+
+/**
+ * The report queue: open reports by default, newest first, each with the content it points at so the
+ * administrator can see what was reported. Administrators only.
+ */
+export async function listModerationReports(
+  actor: CommunityActor,
+  input: ListModerationReportsInput = {},
+): Promise<ReportQueueEntry[]> {
+  assertCanModerate(actor);
+
+  const repository = getCommunityRepository();
+  const reports = await repository.listReports({
+    status: input.status ?? "open",
+    limit: normalizeLimit(input.limit),
+  });
+
+  const entries: ReportQueueEntry[] = [];
+
+  for (const report of reports) {
+    if (report.targetType === "thread") {
+      const thread = await repository.getThreadById(report.targetId);
+
+      if (thread) {
+        entries.push({ report, thread });
+      }
+
+      continue;
+    }
+
+    const reply = await repository.getReplyById(report.targetId);
+
+    if (!reply) {
+      continue;
+    }
+
+    const thread = await repository.getThreadById(reply.threadId);
+
+    if (thread) {
+      entries.push({ report, thread, reply });
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Closes a report as resolved or dismissed, recording the triage audit trail. Closing a report does
+ * not change the reported content's visibility — hiding is a separate moderation action
+ * (`member-reporting-slice.md` §13 decision 2). Administrators only.
+ */
+export async function resolveReport(
+  actor: CommunityActor,
+  reportId: string,
+  input: ResolveReportInput,
+): Promise<CommunityReport> {
+  assertCanModerate(actor);
+
+  const parsed = parseCommunitySchema(resolveReportSchema, input);
+  const repository = getCommunityRepository();
+  const existing = await repository.getReportById(reportId);
+
+  if (!existing) {
+    throw new CommunityError("Report was not found.", "COMMUNITY_REPORT_NOT_FOUND", 404);
+  }
+
+  const updated: CommunityReport = {
+    ...existing,
+    status: parsed.action === "resolve" ? "resolved" : "dismissed",
+    resolvedBy: actor.id,
+    resolvedAt: new Date().toISOString(),
+    resolutionNote: parsed.note || undefined,
+  };
+
+  await repository.updateReport(updated);
 
   return updated;
 }
