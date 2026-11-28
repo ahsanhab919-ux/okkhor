@@ -6,27 +6,36 @@ function roleLabel(role: string) {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
+/** The two-letter monogram for the avatar ring; models carry no portrait image. */
+function initials(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("") || "?"
+  );
+}
+
 /**
- * The member header: display name, role badge(s), and the member-since date. Rendered by both
- * `/profile` and `/u/[id]`, so a profile has exactly one identity header
- * (`member-profile-slice.md` §8). It renders only the `PublicProfile` view, so it can never show
- * a phone number or password metadata (§7).
+ * The member hero, aligned to the Stitch profile header: an initials avatar in a gradient ring, the
+ * display name, the member's role line, and the member-since date. Rendered by both `/profile` and
+ * `/u/[id]`, so a profile has exactly one identity header (`member-profile-slice.md` §8). It renders
+ * only the `PublicProfile` view, so it can never show a phone number or password metadata (§7).
  */
 export function ProfileCard({ profile }: { profile: PublicProfile }) {
   return (
-    <div className="section-heading">
-      <div>
-        <p className="eyebrow eyebrow--blue">Member</p>
-        <h1>{profile.displayName}</h1>
+    <header className="profile-hero">
+      <span aria-hidden="true" className="profile-hero__avatar">
+        {initials(profile.displayName)}
+      </span>
+
+      <div className="profile-hero__body">
+        <h1 className="profile-hero__name">{profile.displayName}</h1>
+        <p className="profile-hero__role">{profile.roles.map(roleLabel).join(" · ")}</p>
+        <p className="profile-hero__since">Member since {profile.createdAt.slice(0, 10)}</p>
       </div>
-      <div className="discussion-card__meta">
-        {profile.roles.map((role) => (
-          <span key={role} className="pill">
-            {roleLabel(role)}
-          </span>
-        ))}
-        <span>Member since {profile.createdAt.slice(0, 10)}</span>
-      </div>
-    </div>
+    </header>
   );
 }
