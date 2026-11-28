@@ -22,7 +22,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `community-moderation-slice.md` - ninth product slice: administrator moderation of threads and replies (hide/restore, lock/unlock) (status: Implemented)
 - `topic-browse-slice.md` - tenth product slice: browse research tags and community categories (`/topics`, `/tags/[tag]`, `/categories/[category]`) (status: Implemented)
 - `password-reset-delivery-slice.md` - eleventh product slice: password-reset delivery over SMS/email channels, a 6-digit reset code, and an optional account email (status: Implemented)
-- `member-reporting-slice.md` - twelfth product slice: member reporting of threads/replies and an administrator triage queue (status: Proposed; Definition of Ready)
+- `member-reporting-slice.md` - twelfth product slice: member reporting of threads/replies and an administrator triage queue (status: Implemented)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions

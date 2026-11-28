@@ -9,8 +9,8 @@
 Define the data the system owns: the domain types the code speaks in, the PostgreSQL schema
 that persists them, the in-memory equivalent used in tests, and the optional ephemeral store.
 This is the schema of record for the `auth_*` tables, `content_items`,
-`scholar_verifications`, `community_threads`, `community_replies`, and `saved_items`, and the
-contract every repository implementation must satisfy.
+`scholar_verifications`, `community_threads`, `community_replies`, `community_reports`, and
+`saved_items`, and the contract every repository implementation must satisfy.
 
 ## 2. Domain Types
 
@@ -191,16 +191,49 @@ The member-authored discussion thread and its replies. Defined in
 | `moderatedAt?` | `string` (ISO) | Moderator audit trail — stripped from member reads |
 | `moderationNote?` | `string` | Optional moderator note — stripped from member reads |
 
+The member-filed report about a thread or reply, and its triage record. Defined in
+`src/modules/community/domain/community-types.ts`.
+
+`CommunityReport`:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | UUID, primary key |
+| `reporterId` | `string` | The reporting member, stamped from the session; admin-only on reads |
+| `targetType` | `"thread" \| "reply"` | What is being reported |
+| `targetId` | `string` | The reported thread or reply id |
+| `reason` | `ReportReason` | `spam \| harassment \| misinformation \| off-topic \| other` |
+| `detail?` | `string` | Optional free-text note, ≤ 1000 chars |
+| `status` | `ReportStatus` | `open \| resolved \| dismissed`; new reports start `open` |
+| `createdAt` | `string` (ISO) | Queue sort key (descending) |
+| `resolvedBy?` | `string` | Moderator audit trail |
+| `resolvedAt?` | `string` (ISO) | Moderator audit trail |
+| `resolutionNote?` | `string` | Optional moderator note written on resolve/dismiss |
+
 Related types: `ModerationState = "visible" | "hidden"`, `ModerationAction = "hide" | "restore" |
 "lock" | "unlock"`, `ModerateThreadInput`, `ModerateReplyInput`, `CommunityThreadSummary`
 (`CommunityThread & { replyCount }`, derived on the list read), `CommunityThreadDetail`
 (`{ thread, replies }`), `CommunityActor` (`{ id, roles }`), `CreateThreadInput`,
 `CreateReplyInput`, `CommunityCursor = { createdAt, id }`, `ListThreadsOptions`,
 `ListThreadsByCategoryOptions` (`{ limit?; cursor? }`), `TagCount`-style `CategoryCount`
-(`{ category, count }`), `ListRepliesOptions`, `ListThreadsResult`, and `CommunityRepository`
+(`{ category, count }`), `ListRepliesOptions`, `ListThreadsResult`,
+`ReportTargetType = "thread" | "reply"`, `ReportStatus = "open" | "resolved" | "dismissed"`,
+`ReportReason = "spam" | "harassment" | "misinformation" | "off-topic" | "other"`,
+`CreateReportInput` (`{ targetType, targetId, reason, detail? }`),
+`ResolveReportInput` (`{ action: "resolve" | "dismiss"; note? }`),
+`ReportQueueEntry` (`{ report, thread, reply? }`, the joined triage read),
+`ListReportsOptions` (`{ status?; limit }`), and `CommunityRepository`
 (`listThreads`, `listThreadsByAuthor`, `listDistinctCategories`, `listThreadsByCategory`,
 `getThreadById`, `createThread`, `listRepliesByThreadId`, `createReply`,
-`getReplyById`, `updateThreadModeration`, `updateReplyModeration`).
+`getReplyById`, `updateThreadModeration`, `updateReplyModeration`,
+`createReport`, `getReportById`, `listReports`, `updateReport`).
+`createReport` is **idempotent per member and item** — the unique triple
+`(reporterId, targetType, targetId)` means a second report by the same member on the same item
+returns the pre-existing report rather than creating a duplicate (`member-reporting-slice.md` §5).
+`listReports` filters by `status` (the queue passes `open`) and orders by `createdAt`/`id`
+descending. The report is deliberately **decoupled from visibility**: filing one never changes
+the target's `moderationState`; only an explicit hide/restore moderation action does
+(`member-reporting-slice.md` §7).
 `listThreadsByAuthor` is the profile read (one author's threads, `createdAt` descending) and is
 always visible-only. `listDistinctCategories` and `listThreadsByCategory` are the browse reads
 (see `topic-browse-slice.md`): the former returns visible-thread counts keyed by category
@@ -502,7 +535,46 @@ the item's existence and published status are checked at save time by the compos
 (`INSERT … ON CONFLICT (user_id, item_id) DO NOTHING`), and removal is a plain
 `DELETE … WHERE user_id = $1 AND item_id = $2` whose affected-row count is the result.
 
-### 3.9 Migration Operations
+### 3.9 `community_reports`
+
+The member-filed report about a thread or reply, and its moderator triage state. Created by
+`migrations/20261128190000_create_community_reports.cjs` (`member-reporting-slice.md` §9).
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `id` | `text` | primary key |
+| `reporter_id` | `text` | not null |
+| `target_type` | `text` | not null (`thread` \| `reply`) |
+| `target_id` | `text` | not null |
+| `reason` | `text` | not null |
+| `detail` | `text` | nullable |
+| `status` | `text` | not null, default `open` (`open` \| `resolved` \| `dismissed`) |
+| `created_at` | `text` | not null |
+| `resolved_by` | `text` | nullable |
+| `resolved_at` | `text` | nullable |
+| `resolution_note` | `text` | nullable |
+
+Index `community_reports_reporter_target_uidx` — **unique** on
+`(reporter_id, target_type, target_id)`: the idempotency guarantee (one report per member per
+item), so a repeat report is a no-op at the database, not only in the service
+(`member-reporting-slice.md` §7, §9). Index `community_reports_status_created_at_idx` on
+`(status, created_at, id)` to support the queue read
+(`WHERE status = $1 ORDER BY created_at DESC, id DESC LIMIT $2`, satisfied by a backward index
+scan then a limit). There is **no cross-table foreign key**: `reporter_id`, `target_id`, and
+`resolved_by` store bare ids as `text` (matching `author_id`/`moderated_by`), and `target_id`
+is polymorphic, so it cannot carry a single FK. The file is a brand-new table, so the migration
+rewrites no existing row and adds no locks beyond the `create table`.
+
+The write is an **idempotent insert**
+(`INSERT … ON CONFLICT (reporter_id, target_type, target_id) DO NOTHING`, then a select-back by
+the same triple), so the reporter always receives the stored report whether it was just created
+or already existed. Triage is a plain
+`UPDATE … SET status = $1, resolved_by = $2, resolved_at = $3, resolution_note = $4 WHERE id = $5`.
+Writing a report **never touches** `community_threads.moderation_state` /
+`community_replies.moderation_state` — filing never auto-hides; only an explicit hide/restore
+moderation action changes visibility (`member-reporting-slice.md` §7).
+
+### 3.10 Migration Operations
 
 Managed by `node-pg-migrate` (config keys kebab-case, `single-transaction: true`). See
 `docs/configuration.md` for commands. The auth migration's `down` drops the three tables in
@@ -517,8 +589,9 @@ author indexes (`community_threads_author_id_created_at_idx` then
 migration's `down` drops the reply moderation columns before the thread moderation columns;
 the topic-browse migration's `down` drops both browse indexes
 (`community_threads_category_created_at_idx` then `content_items_tags_gin_idx`) and touches no
-table; and the email migration's `down` drops the `email` column from `auth_users` and touches no
-other column.
+table; the email migration's `down` drops the `email` column from `auth_users` and touches no
+other column; and the community-reports migration's `down` drops `community_reports` (and with
+it both of its indexes) and touches no other table.
 
 ## 4. In-Memory Store
 
@@ -568,9 +641,9 @@ turns into a `409`). Like the other stores it is cached on `globalThis`
 
 ### 4.4 Community store
 
-Defined in `src/modules/community/infrastructure/community-store.ts`. `CommunityStore` holds two
-`Map`s keyed by `id`: `threads: Map<string, CommunityThread>` and
-`replies: Map<string, CommunityReply>`. `listThreads` filters to visible threads unless
+Defined in `src/modules/community/infrastructure/community-store.ts`. `CommunityStore` holds
+three `Map`s keyed by `id`: `threads: Map<string, CommunityThread>`,
+`replies: Map<string, CommunityReply>`, and `reports: Map<string, CommunityReport>`. `listThreads` filters to visible threads unless
 `includeHidden`, sorts by `createdAt`/`id` descending, applies the keyset cursor, derives
 `replyCount` by scanning the replies map, and slices to the requested limit (returning a
 `nextCursor` while a further page remains). `listRepliesByThreadId` filters by `threadId` and
@@ -581,7 +654,12 @@ returns `CategoryCount`s sorted by count descending then category ascending;
 `listThreadsByCategory` returns one category's **visible** threads sorted by `createdAt`/`id`
 descending with the same keyset cursor and derived `replyCount`. `getReplyById` returns a reply
 in any state; `updateThreadModeration` and
-`updateReplyModeration` overwrite the stored row's moderation columns. Like the other stores
+`updateReplyModeration` overwrite the stored row's moderation columns. The reporting methods
+mirror the persistence path: `createReport` scans the `reports` map for a matching
+`(reporterId, targetType, targetId)` and returns the existing report if found (the in-memory
+form of the unique index), `getReportById` looks a report up by id, `listReports` filters by
+`status` (the queue passes `open`) and sorts by `createdAt`/`id` descending before slicing to
+the limit, and `updateReport` overwrites the stored row's triage columns. Like the other stores
 it is cached on `globalThis`
 (`__okkhorCommunityStore`) and replaced between tests by `resetCommunityStoreForTesting()`.
 
