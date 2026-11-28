@@ -25,6 +25,7 @@ At the current stage the deployed product is intentionally narrow:
 - two protected placeholders (`/community`, `/scholar-verify`)
 - a public research-comprehension read path (`/content`, `/content/[id]`)
 - a per-member "My Library" (`/library`) over saved research items
+- member profile pages — the owner's `/profile` and a public footprint at `/u/[id]`
 - JSON APIs for identity and content, and a health probe
 
 Deeper domains named in `ADR-001` (Video Processing, Video Delivery, Search,
@@ -106,9 +107,9 @@ The driver-selection pattern is shared across both boundaries (see
 ## 6. Request Lifecycle
 
 1. **Edge middleware** (`middleware.ts`) runs for the protected matchers
-   (`/community/:path*`, `/scholar-verify/:path*`, `/library/:path*`). It verifies the
-   access-token cookie at the edge and redirects to `/auth?next=…` when the token is missing
-   or invalid.
+   (`/community/:path*`, `/scholar-verify/:path*`, `/library/:path*`, `/profile/:path*`). It
+   verifies the access-token cookie at the edge and redirects to `/auth?next=…` when the token
+   is missing or invalid.
 2. **Route handler** (`app/api/**/route.ts`) or **server component** (`app/**/page.tsx`)
    runs on the Node.js runtime.
 3. The handler/page calls into a **module's public surface** (for example

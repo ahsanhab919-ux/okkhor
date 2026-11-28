@@ -18,7 +18,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `discovery-slice.md` - fifth product slice: keyword/metadata search over research and community, the `ADR-006` fallback baseline (status: Implemented)
 - `ai-summarization-slice.md` - sixth product slice: AI-generated English + Bangla summaries on publish (status: Implemented)
 - `library-slice.md` - seventh product slice: per-member saved research items ("My Library") (status: Implemented)
-- `member-profile-slice.md` - eighth product slice: member profile pages (`/profile` and `/u/[id]`) (status: Proposed)
+- `member-profile-slice.md` - eighth product slice: member profile pages (`/profile` and `/u/[id]`) (status: Implemented)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions

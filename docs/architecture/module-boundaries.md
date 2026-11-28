@@ -82,7 +82,8 @@ src/modules/identity/
   api/            auth-http.ts        (cookie + error helpers)
   client/         session-client.ts   ("use client" session fetch helpers)
   ui/             auth-page-shell.tsx, phone-auth-flow.tsx,
-                  credential-auth-panel.tsx, protected-workspace-shell.tsx
+                  credential-auth-panel.tsx, protected-workspace-shell.tsx,
+                  profile-card.tsx      (server-safe member header)
 ```
 
 `identity` is the reference example for the layering. New modules should follow it.
@@ -165,6 +166,7 @@ src/modules/community/
   api/            community-http.ts         (response + error shaping)
   ui/             thread-form.tsx           (create island)
                   reply-form.tsx             (reply island)
+                  thread-list.tsx            (shared server-safe discussion list)
 ```
 
 `community` owns member-authored discussion: threads and their flat, chronological replies. It
@@ -270,6 +272,13 @@ Current dependency edges (verified in code):
   root (`app/api/library/library-actor.ts`), and the saved-list hydration and published-target
   check go through content's `getPublishedItemsByIds` public surface in `app/**`; the module
   itself never reads `content_items`.
+- The **member-profile slice** adds no new module and no new cross-module edge. It widens
+  existing public surfaces — identity `getPublicProfile`, content
+  `listPublishedItemsByAuthor`, community `listThreadsByAuthor`, and library
+  `countSavedItems` — all resolved by the composition root (`app/profile/**`, `app/u/**`) and
+  joined there. The identity join (display name, roles, member-since) happens in `app/**`, so
+  no module ever resolves a member's name, and the profile pages read the same
+  modules-import-types-only rule as the rest of the app.
 
 Rules that follow:
 

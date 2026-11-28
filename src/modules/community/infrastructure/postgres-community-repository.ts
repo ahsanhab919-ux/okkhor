@@ -103,6 +103,20 @@ function createPostgresCommunityRepository(pool: Pool): CommunityRepository {
 
       return result.rows[0] ? mapThreadRow(result.rows[0]) : undefined;
     },
+    async listThreadsByAuthor(authorId, { limit }) {
+      const result = await pool.query<PostgresCommunityThreadRow>(
+        `
+          SELECT t.*, (SELECT COUNT(*) FROM community_replies r WHERE r.thread_id = t.id)::int AS reply_count
+          FROM community_threads t
+          WHERE t.author_id = $1
+          ORDER BY t.created_at DESC, t.id DESC
+          LIMIT $2
+        `,
+        [authorId, limit],
+      );
+
+      return result.rows.map((row) => ({ ...mapThreadRow(row), replyCount: row.reply_count ?? 0 }));
+    },
     async createThread(thread) {
       await pool.query(
         `

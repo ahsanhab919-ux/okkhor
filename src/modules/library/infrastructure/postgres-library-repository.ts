@@ -54,6 +54,14 @@ function createPostgresLibraryRepository(pool: Pool): LibraryRepository {
 
       return (result.rowCount ?? 0) > 0;
     },
+    async countSavedItems(userId) {
+      const result = await pool.query<{ count: string }>(
+        "SELECT COUNT(*)::text AS count FROM saved_items WHERE user_id = $1",
+        [userId],
+      );
+
+      return Number(result.rows[0]?.count ?? 0);
+    },
     async saveItem(item) {
       const inserted = await pool.query<PostgresSavedItemRow>(
         `
