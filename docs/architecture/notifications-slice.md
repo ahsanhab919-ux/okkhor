@@ -123,7 +123,10 @@ Acceptance criteria:
   now produced for a thread's author and its prior visible participants (recipients derived from the
   thread, de-duplicated, replier excluded)
 - **verification-decision notifications** — the `verification` module's approve/reject decision is the
-  other producer named in that deferred list; it is deferred to its own slice
+  other producer named in that deferred list; it is deferred to its own slice. **Resolved** by
+  [verification-notifications-slice.md](verification-notifications-slice.md): an applicant is now
+  notified of the `approved`/`rejected` outcome (keyed on the decision) through the same inbox and
+  channels
 - **preferences, muting, or per-type opt-out** — every member receives every notification this slice
   produces; a preference model (and its storage) is a follow-up
 - **email digests, batching, or scheduled summaries** — each event sends immediately; batching needs a
