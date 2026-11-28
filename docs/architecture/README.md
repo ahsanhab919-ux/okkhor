@@ -12,7 +12,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `operational-calendar.md` - calendar model and readiness checklist for regional demand events (`ADR-008`)
 - `authentication-backend-slice.md` - auth domain flow, persistence behavior, migration workflow, and validation notes
 - `content-comprehension-slice.md` - first product slice: research-item read path (status: Implemented; read path only)
-- `content-authoring-slice.md` - second product slice: create/edit/publish research items (status: Accepted; not yet implemented)
+- `content-authoring-slice.md` - second product slice: create/edit/publish research items (status: Implemented)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions
