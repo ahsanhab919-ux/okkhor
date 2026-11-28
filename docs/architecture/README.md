@@ -15,6 +15,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `content-authoring-slice.md` - second product slice: create/edit/publish research items (status: Implemented)
 - `scholar-verification-slice.md` - third product slice: credentials application and admin review granting the `scholar` role (status: Implemented)
 - `community-slice.md` - fourth product slice: member-authored discussion threads and replies (status: Implemented)
+- `discovery-slice.md` - fifth product slice: keyword/metadata search over research and community, the `ADR-006` fallback baseline (status: Proposed; not yet implemented)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions
