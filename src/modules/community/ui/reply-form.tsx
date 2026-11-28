@@ -58,12 +58,10 @@ export function ReplyForm({ threadId }: ReplyFormProps) {
   }
 
   return (
-    <form className="form-panel" onSubmit={handleSubmit}>
-      <div className="form-panel__header">
-        <div>
-          <h2>Add a reply</h2>
-          <p>Keep the discussion constructive and on topic.</p>
-        </div>
+    <form className="composer" onSubmit={handleSubmit}>
+      <div className="composer__header">
+        <h2>Add a reply</h2>
+        <p>Keep the discussion constructive and on topic.</p>
       </div>
 
       {errorMessage ? (
@@ -72,15 +70,24 @@ export function ReplyForm({ threadId }: ReplyFormProps) {
         </p>
       ) : null}
 
-      <div className="field-grid">
-        <label className="field field--full">
-          <span>Reply</span>
-          <textarea name="body" onChange={(event) => setBody(event.target.value)} required rows={4} value={body} />
-        </label>
-      </div>
+      <label className="composer__field">
+        <span className="composer__label">Reply</span>
+        <textarea
+          className="composer__input composer__input--body"
+          name="body"
+          onChange={(event) => setBody(event.target.value)}
+          required
+          rows={4}
+          value={body}
+        />
+      </label>
 
-      <div className="verification-actions">
-        <button className="button button--primary button--large" disabled={submitting} type="submit">
+      <div className="composer__actions">
+        <button
+          className="button button--primary button--large composer__submit"
+          disabled={submitting}
+          type="submit"
+        >
           {submitting ? "Posting..." : "Post reply"}
         </button>
       </div>
