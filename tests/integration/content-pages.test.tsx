@@ -54,7 +54,7 @@ describe("content pages", () => {
 
     render(await ContentListPage());
 
-    expect(screen.getByRole("heading", { name: /Research Archive/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /The Knowledge/i })).toBeInTheDocument();
     expect(screen.getByText("Sediment cores reveal rapid shifts")).toBeInTheDocument();
   });
 
