@@ -80,18 +80,22 @@ export function SearchForm({ initial, authors }: SearchFormProps) {
   }
 
   return (
-    <form className="form-panel" onSubmit={handleSubmit}>
-      <div className="form-panel__header">
-        <div>
-          <h2>Search the corpus</h2>
-          <p>Search published research and community threads, then narrow by kind, tag, or author.</p>
-        </div>
+    <form className="filter-panel" onSubmit={handleSubmit}>
+      <div className="filter-panel__head">
+        <h2>Search the corpus</h2>
+        <p>Search published research and community threads, then narrow by kind, tag, or author.</p>
       </div>
 
-      <div className="field-grid">
-        <label className="field field--full">
+      <div className="filter-panel__grid">
+        <label className="field field--full filter-panel__query">
           <span>Query</span>
-          <input name="q" onChange={(event) => setQ(event.target.value)} required value={q} />
+          <input
+            name="q"
+            onChange={(event) => setQ(event.target.value)}
+            placeholder="Deep search manuscripts, phonetics, or era…"
+            required
+            value={q}
+          />
         </label>
 
         <label className="field">
@@ -134,7 +138,7 @@ export function SearchForm({ initial, authors }: SearchFormProps) {
         </label>
       </div>
 
-      <div className="verification-actions">
+      <div className="filter-panel__actions">
         <button className="button button--primary button--large" disabled={submitting} type="submit">
           Search
         </button>
