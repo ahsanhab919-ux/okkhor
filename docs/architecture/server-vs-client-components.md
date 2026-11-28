@@ -63,6 +63,8 @@ Exactly these files carry `"use client"` (the interactive islands):
 | `src/modules/identity/ui/phone-auth-flow.tsx` | OTP flow: `useState`, countdown `useEffect`, `useSearchParams`, handlers | largest interactive island |
 | `src/modules/identity/ui/credential-auth-panel.tsx` | login/register form state and submit handlers | |
 | `src/modules/identity/ui/protected-workspace-shell.tsx` | session restore effect, `useRouter`/`usePathname`, logout handler | gates protected pages from the client side |
+| `src/modules/verification/ui/verification-form.tsx` | applicant form `useState`, draft/submit handlers, `useRouter` | drives `POST`/`PATCH /api/verification/application` |
+| `src/modules/verification/ui/verification-review.tsx` | admin decision `useState`, approve/reject handlers, `useRouter` | drives `PATCH /api/verification/applications/[id]` |
 
 `src/modules/identity/client/session-client.ts` is also `"use client"` but is a **helper
 module**, not a component: it wraps `fetch` against the auth API with
@@ -75,6 +77,10 @@ Everything else — `src/modules/experience/ui.tsx`, `src/modules/experience/sit
 The `content` module adds **no** client island: its list and detail pages are server
 components that render the server-safe `ContentItemList` / `ContentItemDetail` views directly,
 so the read path needs no JavaScript at all.
+
+The `verification` module adds **two** islands — the applicant form and the admin decision
+form. Both pages are server components that resolve the session and application state and
+pass it down as props; the islands own only local form state and post to the verification API.
 
 ## 6. Import Graph Nuance
 

@@ -6,6 +6,7 @@ export class AuthError extends Error {
       | "AUTH_USER_EXISTS"
       | "AUTH_INVALID_CREDENTIALS"
       | "AUTH_UNAUTHORIZED"
+      | "AUTH_FORBIDDEN"
       | "AUTH_TOKEN_INVALID"
       | "AUTH_TOKEN_EXPIRED"
       | "AUTH_RESET_INVALID"
