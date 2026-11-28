@@ -985,10 +985,37 @@ h3 {
 }
 
 .discussion-card {
-  padding: 22px;
-  display: grid;
-  grid-template-columns: 86px minmax(0, 1fr);
-  gap: 18px;
+  padding: 24px;
+  border-left: 4px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.discussion-card:hover {
+  background: var(--color-surface-container-high);
+  border-left-color: var(--color-primary);
+}
+
+.discussion-card__badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--color-primary);
+  font-family: var(--font-headline);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.discussion-card__byline,
+.discussion-card__ago {
+  color: var(--color-outline);
+  font-size: 0.88rem;
+}
+
+.discussion-card__byline strong {
+  color: var(--color-on-surface);
+  font-weight: 600;
 }
 
 .discussion-card__votes {
@@ -2159,5 +2186,148 @@ code {
 
   .detail-related__card {
     min-width: 240px;
+  }
+}
+
+/* Community hub — the Stitch "Community Hub - Okkhor Desktop" layout: a hero, a discussion feed,
+   and a rail built only from data the archive actually holds. */
+.hub {
+  display: grid;
+  gap: 28px;
+}
+
+.community-hero__title {
+  margin: 0 0 8px;
+  font-family: var(--font-headline);
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.community-hero__lead {
+  max-width: 60ch;
+}
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.9fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.hub-feed {
+  display: grid;
+  gap: 16px;
+}
+
+.hub-feed__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hub-feed__head h3 {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 1.15rem;
+}
+
+.hub-feed__head span {
+  color: var(--color-outline);
+  font-size: 0.85rem;
+}
+
+.hub-rail {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+  position: sticky;
+  top: 24px;
+}
+
+.hub-card {
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-container-low);
+  box-shadow: var(--shadow-panel);
+}
+
+.hub-card__eyebrow {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-outline);
+}
+
+.hub-card h3 {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 1.15rem;
+}
+
+.hub-card p {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  line-height: 1.65;
+}
+
+.hub-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hub-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface-container-highest);
+  color: var(--color-on-surface);
+  font-size: 0.82rem;
+}
+
+.hub-tag:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.hub-tag__count {
+  color: var(--color-outline);
+  font-size: 0.74rem;
+}
+
+.hub-card--cta {
+  background:
+    radial-gradient(circle at top right, rgba(77, 142, 255, 0.28), transparent 60%),
+    var(--color-surface-container);
+}
+
+.hub-card--cta .button {
+  justify-self: start;
+}
+
+@media (max-width: 900px) {
+  .hub-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hub-rail {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .community-hero {
+    flex-direction: column;
   }
 }
