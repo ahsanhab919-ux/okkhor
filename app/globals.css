@@ -3543,3 +3543,53 @@ a.tab-row__tab--active {
 .scholar-card__actions {
   margin-top: auto;
 }
+
+/* The analytics canvas — the Stitch "Intelligence Canvas" idiom, drawn with the real distributions
+   the archive already holds. Each bar is scaled against the largest value in its own list. */
+.meter-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.meter-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 180px) 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.meter-row__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.meter-row__label:hover {
+  color: var(--color-primary);
+}
+
+.meter-row__bar {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-container-high);
+  overflow: hidden;
+}
+
+.meter-row__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--color-primary-container), var(--color-accent));
+}
+
+.meter-row__value {
+  color: var(--color-outline);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
