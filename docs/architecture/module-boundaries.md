@@ -426,6 +426,15 @@ Current dependency edges (verified in code):
   summary a publish requires. The Stitch "Bulk Upload & Ingestion" screen it aligns has no backing
   here (no file storage, no upload endpoint, and no ingestion queue), so it uploads nothing and edits
   nothing (`ADR-001`), and is reached from the `/admin` hub.
+- The **communications slice** adds no module, no edge, and no persistence. It centralises the
+  notification delivery configuration (`NOTIFICATION_CHANNEL_DRIVER`, and the gateway URLs) in one
+  domain file (`platform/domain/notification-channel-config.ts`) that the channel selector
+  (`platform/infrastructure/notification-channel.ts`) now reads through, so the route
+  (`app/admin/communications/page.tsx`) reports exactly the channels a send would resolve to —
+  alongside the catalogue of outcomes the `notifications` module produces. The Stitch "Communications"
+  screen it aligns is a broadcast/segment composer with no backing (no broadcast, no segment, and no
+  composer), so it composes nothing and sends nothing (`ADR-001`), and is reached from the `/admin`
+  hub.
 
 Rules that follow:
 
