@@ -20,6 +20,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `library-slice.md` - seventh product slice: per-member saved research items ("My Library") (status: Implemented)
 - `member-profile-slice.md` - eighth product slice: member profile pages (`/profile` and `/u/[id]`) (status: Implemented)
 - `community-moderation-slice.md` - ninth product slice: administrator moderation of threads and replies (hide/restore, lock/unlock) (status: Implemented)
+- `topic-browse-slice.md` - tenth product slice: browse research tags and community categories (`/topics`, `/tags/[tag]`, `/categories/[category]`) (status: Accepted)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions
