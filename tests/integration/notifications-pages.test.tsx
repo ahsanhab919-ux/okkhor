@@ -124,6 +124,24 @@ describe("notifications pages", () => {
     expect(screen.getByRole("link", { name: /View/i })).toHaveAttribute("href", "/community/thread-9");
   });
 
+  it("renders a verification notification with a link to the verification page, with no component change", async () => {
+    const userId = await signInAs();
+
+    await createNotification({
+      recipientId: userId,
+      type: "verification_approved",
+      title: "Your scholar verification was approved",
+      body: "An administrator approved your scholar verification. Your profile now shows the Scholar badge.",
+      href: "/scholar-verify",
+      dedupeKey: "verification_approved:app-1:2026-07-01T00:00:00.000Z",
+    });
+
+    render(await NotificationsPage());
+
+    expect(screen.getByText("Your scholar verification was approved")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View/i })).toHaveAttribute("href", "/scholar-verify");
+  });
+
   it("shows an empty state when the inbox is empty", async () => {
     await signInAs();
 

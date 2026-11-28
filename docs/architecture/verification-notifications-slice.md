@@ -1,6 +1,6 @@
 # Verification Notifications Slice
 
-- Status: `Proposed` (fifteenth product slice; decisions recorded in §13)
+- Status: `Implemented` (fifteenth product slice; decisions recorded in §13)
 - Related ADRs: `ADR-001`, `ADR-002`, `ADR-004`
 - Owner: `Engineering Lead`
 - Handbook: `ENGINEERING_HANDBOOK.md` §7.2 (Definition of Ready), §7.3 (Definition of Done)

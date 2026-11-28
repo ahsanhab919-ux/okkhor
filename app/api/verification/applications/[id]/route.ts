@@ -7,6 +7,7 @@ import { verificationErrorResponse, verificationJson } from "@/src/modules/verif
 import { decideApplication, getApplicationForReview } from "@/src/modules/verification/application/verification-service";
 
 import { resolveVerificationActor } from "../../verification-actor";
+import { notifyVerificationDecision } from "../../notify-producers";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     if (application.status === "approved") {
       await grantUserRole({ id: actor.id, roles: actor.roles }, application.applicantId, "scholar");
     }
+
+    // Composition root: the decision has committed, so best-effort notify the applicant.
+    await notifyVerificationDecision(actor.id, application);
 
     return verificationJson({ application });
   } catch (error) {

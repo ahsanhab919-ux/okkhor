@@ -10,6 +10,8 @@ import { POST as createThreadRoute } from "@/app/api/community/threads/route";
 import { POST as markReadRoute } from "@/app/api/notifications/[id]/read/route";
 import { GET as listNotificationsRoute } from "@/app/api/notifications/route";
 import { POST as markAllReadRoute } from "@/app/api/notifications/read-all/route";
+import { PATCH as saveMyApplicationRoute, POST as createMyApplicationRoute } from "@/app/api/verification/application/route";
+import { PATCH as decideApplicationRoute } from "@/app/api/verification/applications/[id]/route";
 import { resetCommunityStoreForTesting } from "@/src/modules/community/infrastructure/community-store";
 import { registerUser } from "@/src/modules/identity/application/auth-service";
 import { ACCESS_TOKEN_COOKIE } from "@/src/modules/identity/domain/auth-config";
@@ -22,10 +24,13 @@ import {
   getLogNotificationChannel,
   resetLogNotificationChannelForTesting,
 } from "@/src/modules/platform/infrastructure/log-notification-channel";
+import { resetVerificationStoreForTesting } from "@/src/modules/verification/infrastructure/verification-store";
 
 const THREADS_URL = "http://localhost/api/community/threads";
 const REPORTS_URL = "http://localhost/api/community/reports";
 const NOTIFICATIONS_URL = "http://localhost/api/notifications";
+const APPLICATION_URL = "http://localhost/api/verification/application";
+const APPLICATIONS_URL = "http://localhost/api/verification/applications";
 
 type ErrorPayload = {
   error: { code: string };
@@ -87,12 +92,37 @@ async function listInbox(token: string) {
   return { status: response.status, notifications: payload.notifications };
 }
 
+const COMPLETE_APPLICATION = {
+  displayName: "Dr. Nadia Islam",
+  degrees: [{ degreeType: "PhD", institution: "University of Dhaka", year: "2018" }],
+  affiliations: [{ role: "Associate Professor", organization: "CRMH", since: "2021" }],
+  portfolio: "Archive Cities of the Bay (2024)",
+  specializations: ["history of science"],
+  languages: ["bn", "en"],
+};
+
+async function submitApplicationFor(token: string) {
+  const response = await createMyApplicationRoute(
+    jsonRequest("POST", { ...COMPLETE_APPLICATION, status: "submitted" }, token, APPLICATION_URL),
+  );
+
+  return ((await response.json()) as { application: { id: string } }).application.id;
+}
+
+async function decideFor(token: string, applicationId: string, body: Record<string, unknown>) {
+  return decideApplicationRoute(
+    jsonRequest("PATCH", body, token, `${APPLICATIONS_URL}/${applicationId}`),
+    idContext(applicationId),
+  );
+}
+
 describe("notification routes", () => {
   beforeEach(() => {
     resetAuthStoreForTesting();
     resetCommunityStoreForTesting();
     resetNotificationStoreForTesting();
     resetLogNotificationChannelForTesting();
+    resetVerificationStoreForTesting();
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -485,6 +515,121 @@ describe("notification routes", () => {
 
     // The notification was persisted before delivery, so the author's inbox still records it.
     expect((await listInbox(author.token)).notifications).toHaveLength(1);
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it("notifies the applicant when their scholar application is approved, leaving the response unchanged", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const applicant = await persona("01712345678");
+    const applicationId = await submitApplicationFor(applicant.token);
+
+    const response = await decideFor(admin.token, applicationId, { status: "approved", reviewNote: "Welcome." });
+    const body = (await response.json()) as { application: { status: string } };
+
+    expect(response.status).toBe(200);
+    expect(body.application.status).toBe("approved");
+
+    const inbox = await listInbox(applicant.token);
+
+    expect(inbox.notifications).toHaveLength(1);
+    expect(inbox.notifications[0]).toMatchObject({
+      recipientId: applicant.userId,
+      type: "verification_approved",
+      title: "Your scholar verification was approved",
+      href: "/scholar-verify",
+    });
+    expect(inbox.notifications[0].dedupeKey).toMatch(/^verification_approved:.+:.+$/);
+    // The notification never carries the review note or the reviewer's identity.
+    expect(inbox.notifications[0].body).not.toContain("Welcome.");
+    expect(inbox.notifications[0].body).not.toContain(admin.userId);
+    expect(getLastNotificationMessageForTesting()?.subject).toBe("Your scholar verification was approved");
+  });
+
+  it("notifies the applicant when their scholar application is rejected", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const applicant = await persona("01712345678");
+    const applicationId = await submitApplicationFor(applicant.token);
+
+    const response = await decideFor(admin.token, applicationId, { status: "rejected", reviewNote: "More evidence." });
+
+    expect(response.status).toBe(200);
+
+    const inbox = await listInbox(applicant.token);
+
+    expect(inbox.notifications).toHaveLength(1);
+    expect(inbox.notifications[0]).toMatchObject({
+      type: "verification_rejected",
+      title: "Your scholar verification was rejected",
+      href: "/scholar-verify",
+    });
+    expect(getLastNotificationMessageForTesting()?.subject).toBe("Your scholar verification was rejected");
+  });
+
+  it("notifies again when a rejected application is edited, resubmitted, then decided", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const applicant = await persona("01712345678");
+    const applicationId = await submitApplicationFor(applicant.token);
+
+    await decideFor(admin.token, applicationId, { status: "rejected" });
+
+    // The applicant edits and resubmits the rejected application.
+    const resubmit = await saveMyApplicationRoute(
+      jsonRequest("PATCH", { status: "submitted" }, applicant.token, APPLICATION_URL),
+    );
+
+    expect(resubmit.status).toBe(200);
+
+    await decideFor(admin.token, applicationId, { status: "approved" });
+
+    const inbox = await listInbox(applicant.token);
+
+    expect(inbox.notifications).toHaveLength(2);
+    expect(inbox.notifications.map((n) => n.type).sort()).toEqual([
+      "verification_approved",
+      "verification_rejected",
+    ]);
+  });
+
+  it("creates no verification notification when a decision is refused", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const applicant = await persona("01712345678");
+
+    // A draft cannot be decided → 409, so the producer never runs.
+    const created = await createMyApplicationRoute(
+      jsonRequest("POST", COMPLETE_APPLICATION, applicant.token, APPLICATION_URL),
+    );
+    const applicationId = ((await created.json()) as { application: { id: string } }).application.id;
+
+    const response = await decideFor(admin.token, applicationId, { status: "approved" });
+
+    expect(response.status).toBe(409);
+    expect((await listInbox(applicant.token)).notifications).toEqual([]);
+  });
+
+  it("suppresses the verification notification when the reviewer is the applicant", async () => {
+    const adminApplicant = await persona("01710000001", ["admin"]);
+    const applicationId = await submitApplicationFor(adminApplicant.token);
+
+    const response = await decideFor(adminApplicant.token, applicationId, { status: "approved" });
+
+    expect(response.status).toBe(200);
+    expect((await listInbox(adminApplicant.token)).notifications).toEqual([]);
+  });
+
+  it("keeps the decision response when verification notification delivery fails", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const applicant = await persona("01712345678");
+    const applicationId = await submitApplicationFor(applicant.token);
+
+    vi.spyOn(getLogNotificationChannel(), "send").mockRejectedValue(new Error("gateway down"));
+
+    const response = await decideFor(admin.token, applicationId, { status: "rejected" });
+
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { application: { status: string } }).application.status).toBe("rejected");
+
+    // The notification was persisted before delivery, so the applicant's inbox still records it.
+    expect((await listInbox(applicant.token)).notifications).toHaveLength(1);
     expect(console.error).toHaveBeenCalled();
   });
 });
