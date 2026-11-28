@@ -15,10 +15,22 @@ type ApiErrorShape = {
   };
 };
 
+type AuthoringResponse = {
+  item?: ResearchItem;
+  summary?: {
+    summaryEn?: string;
+    summaryBn?: string;
+  };
+};
+
 /**
  * The authoring form island. It creates a draft with `POST /api/content/items`, or saves an
  * edit (including the draft → published transition) with `PATCH /api/content/items/[id]`.
  * The stored `updatedAt` is sent back so the server can reject a stale write with `409`.
+ *
+ * The Bangla summary is optional to save: when it is left blank it is omitted from the payload,
+ * and publishing generates and persists it server-side. A successful publish returns a transient
+ * English summary, which is shown here as a read-only preview (it is never stored).
  */
 export function ItemEditorForm({ item }: ItemEditorFormProps) {
   const router = useRouter();
@@ -30,7 +42,13 @@ export function ItemEditorForm({ item }: ItemEditorFormProps) {
   const [sourceUrl, setSourceUrl] = useState(item?.sourceUrl ?? "");
   const [status, setStatus] = useState<ResearchItem["status"]>(item?.status ?? "draft");
   const [errorMessage, setErrorMessage] = useState("");
+  const [aiSummaryEn, setAiSummaryEn] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  function goToStudio() {
+    router.push("/studio");
+    router.refresh();
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,10 +60,10 @@ export function ItemEditorForm({ item }: ItemEditorFormProps) {
     setSubmitting(true);
     setErrorMessage("");
 
+    const trimmedSummary = summaryBn.trim();
     const payload = {
       title,
       abstract,
-      summaryBn,
       sourceLanguage,
       tags: tags
         .split(",")
@@ -53,6 +71,8 @@ export function ItemEditorForm({ item }: ItemEditorFormProps) {
         .filter(Boolean),
       sourceUrl: sourceUrl.trim() || undefined,
       status,
+      // A blank Bangla summary is omitted: it is optional to save and generated on publish.
+      ...(trimmedSummary ? { summaryBn: trimmedSummary } : {}),
       ...(item ? { updatedAt: item.updatedAt } : {}),
     };
 
@@ -71,13 +91,42 @@ export function ItemEditorForm({ item }: ItemEditorFormProps) {
         return;
       }
 
-      router.push("/studio");
-      router.refresh();
+      const body = (await response.json().catch(() => undefined)) as AuthoringResponse | undefined;
+      const previewEn = body?.summary?.summaryEn;
+
+      if (previewEn) {
+        // Hold navigation so the transient English preview is visible before leaving the editor.
+        setAiSummaryEn(previewEn);
+        return;
+      }
+
+      goToStudio();
     } catch {
       setErrorMessage("The research item could not be saved.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (aiSummaryEn) {
+    return (
+      <div className="form-panel">
+        <div className="form-panel__header">
+          <div>
+            <h2>AI English summary (preview, not saved)</h2>
+            <p>The Bangla summary was generated and saved with the published item.</p>
+          </div>
+        </div>
+
+        <p lang="en">{aiSummaryEn}</p>
+
+        <div className="verification-actions">
+          <button className="button button--primary button--large" onClick={goToStudio} type="button">
+            Continue to studio
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -144,12 +193,11 @@ export function ItemEditorForm({ item }: ItemEditorFormProps) {
         </label>
 
         <label className="field field--full">
-          <span>Bangla summary</span>
+          <span>Bangla summary (auto-generated on publish if left blank)</span>
           <textarea
             lang="bn"
             name="summaryBn"
             onChange={(event) => setSummaryBn(event.target.value)}
-            required
             rows={5}
             value={summaryBn}
           />

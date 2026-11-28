@@ -68,6 +68,7 @@ Exactly these files carry `"use client"` (the interactive islands):
 | `src/modules/community/ui/thread-form.tsx` | create-thread form `useState`, submit handler, `useRouter` | drives `POST /api/community/threads` |
 | `src/modules/community/ui/reply-form.tsx` | reply form `useState`, submit handler, `router.refresh()` | drives `POST /api/community/threads/[id]/replies` |
 | `src/modules/search/ui/search-form.tsx` | search form `useState`, submit handler, `useRouter` | pushes query params to `/search` (server reads them) |
+| `src/modules/content/ui/item-editor-form.tsx` | authoring form `useState`, submit handler, `useRouter` | drives `POST`/`PATCH /api/content/items`; shows the transient AI English preview on publish |
 
 `src/modules/identity/client/session-client.ts` is also `"use client"` but is a **helper
 module**, not a component: it wraps `fetch` against the auth API with
@@ -77,9 +78,9 @@ Everything else — `src/modules/experience/ui.tsx`, `src/modules/experience/sit
 `src/modules/content/ui/content-views.tsx`, all pages, all route handlers, all module
 `domain`/`application`/`infrastructure` code — is server-side.
 
-The `content` module adds **no** client island: its list and detail pages are server
+The `content` **read** path adds no client island: its list and detail pages are server
 components that render the server-safe `ContentItemList` / `ContentItemDetail` views directly,
-so the read path needs no JavaScript at all.
+so reading needs no JavaScript at all. (Its authoring form is a client island — see below.)
 
 The `verification` module adds **two** islands — the applicant form and the admin decision
 form. Both pages are server components that resolve the session and application state and
@@ -95,6 +96,13 @@ server-safe `search-results.tsx` view. `app/search/page.tsx` is a server compone
 `searchParams`, runs the discovery query server-side, and renders the results. The island owns
 only the filter inputs and, on submit, pushes the normalized query string to `/search` (then
 `router.refresh()`); it never calls the search API directly.
+
+The `content` authoring form (`item-editor-form.tsx`) is the write-path island for
+`/studio`. It owns the field state and, on submit, posts to the content API. The Bangla summary
+is optional to save; on a successful publish the response carries a transient English summary
+(§4.24 of [api-contracts.md](api-contracts.md)) which the island shows as a read-only preview
+(before navigating), holding navigation until the author continues. The read path
+(`content-views.tsx` and the `/content` pages) still ships no client island.
 
 ## 6. Import Graph Nuance
 
