@@ -22,6 +22,19 @@ export type UserProfileLabel = {
   displayName: string;
 };
 
+/**
+ * The public footprint of a member: the only member shape a profile page may render. It
+ * deliberately excludes `phoneNumber`, `locale`, `lastLoginAt`, `updatedAt`, and
+ * `passwordUpdatedAt` so no sensitive field can leak through a profile route
+ * (`member-profile-slice.md` §5, §7).
+ */
+export type PublicProfile = {
+  id: string;
+  displayName: string;
+  roles: UserRole[];
+  createdAt: string;
+};
+
 export type AuthSessionRecord = {
   id: string;
   userId: string;

@@ -34,6 +34,8 @@ export type ListSavedItemsOptions = {
 export type LibraryRepository = {
   /** The member's saves, `savedAt` descending then `itemId` descending, truncated to `limit`. */
   listSavedItems(userId: string, options: ListSavedItemsOptions): Promise<SavedItem[]>;
+  /** The exact number of items the member has saved. */
+  countSavedItems(userId: string): Promise<number>;
   isItemSaved(userId: string, itemId: string): Promise<boolean>;
   /**
    * Idempotent upsert on `(userId, itemId)`; never duplicates. Returns the save that is stored

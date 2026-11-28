@@ -69,6 +69,11 @@ export type ListThreadsResult = {
 
 export type CommunityRepository = {
   listThreads(options: ListThreadsOptions): Promise<ListThreadsResult>;
+  /**
+   * The author's threads as summaries, `createdAt` descending then `id` descending, truncated to
+   * `limit`. Used by the composition root to render a member profile.
+   */
+  listThreadsByAuthor(authorId: string, options: ListThreadsOptions): Promise<CommunityThreadSummary[]>;
   getThreadById(id: string): Promise<CommunityThread | undefined>;
   createThread(thread: CommunityThread): Promise<void>;
   /** Replies for a thread, oldest first. */

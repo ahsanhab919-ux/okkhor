@@ -59,6 +59,12 @@ function createMemoryContentRepository(): ContentRepository {
         return item && item.status === "published" ? [item] : [];
       });
     },
+    async listPublishedItemsByAuthor(authorId, { limit }) {
+      return Array.from(getContentStore().items.values())
+        .filter((item) => item.status === "published" && item.authorId === authorId)
+        .sort(compareItemsByPublishedDesc)
+        .slice(0, limit);
+    },
     async getItemById(id) {
       return getContentStore().items.get(id);
     },
