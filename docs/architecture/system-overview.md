@@ -42,6 +42,10 @@ At the current stage the deployed product is intentionally narrow:
 - an administrator system configuration surface (`/admin/settings`) that reports the configuration
   the process resolves — the runtime status, the session and reset-code lifetimes, and the auth
   attempt budgets — and edits nothing, because the platform persists no settings
+- an administrator AI summarization surface (`/admin/ai`) that reports the summarization provider
+  the process resolves — the driver, the resolved provider, the model, the request timeout, and
+  whether the API key is set — together with how much of the archive carries a Bangla summary, and
+  runs no pipeline
 - browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
   and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe

@@ -3736,3 +3736,26 @@ a.tab-row__tab--active {
   color: var(--color-on-surface-variant);
   font-size: 0.85rem;
 }
+
+/* The AI summarization surface — the Stitch "AI Content Pipeline" idiom: the provider the process
+   resolves and the coverage summarization has reached. It is read-only: the platform summarizes on
+   publish and does not author or regenerate, so nothing here runs a pipeline. */
+.coverage-meter {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-container-highest);
+  overflow: hidden;
+}
+
+.coverage-meter__fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+}
+
+.coverage-meter__caption {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
