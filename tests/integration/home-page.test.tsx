@@ -8,7 +8,7 @@ describe("HomePage", () => {
     render(<HomePage />);
 
     expect(screen.getByRole("heading", { name: /The World's Best Research, Simplified in Bangla\./i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Explore Library/i })).toHaveAttribute("href", "#archive");
+    expect(screen.getByRole("link", { name: /Explore the Archive/i })).toHaveAttribute("href", "#archive");
     expect(screen.getByRole("link", { name: /Sign In with Phone/i })).toHaveAttribute("href", "/auth");
     expect(screen.getByRole("heading", { name: /Netflix for Knowledge/i })).toBeInTheDocument();
     expect(screen.getByText(/The Quantum Revolution/i)).toBeInTheDocument();

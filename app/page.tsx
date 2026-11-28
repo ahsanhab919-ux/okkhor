@@ -2,24 +2,40 @@ import React from "react";
 import Link from "next/link";
 
 import { archiveCards, publicNavItems, trustHighlights } from "@/src/modules/experience/site-content";
-import { GradientPanel, Icon, PublicTopNav } from "@/src/modules/experience/ui";
+import { Icon, PublicTopNav } from "@/src/modules/experience/ui";
 
 export default function HomePage() {
+  const featured = archiveCards[0];
+
   return (
     <div className="marketing-shell">
       <PublicTopNav items={publicNavItems} />
 
       <main className="page-shell page-shell--wide">
-        <section className="hero-section">
-          <GradientPanel
-            title="The World&apos;s Best Research, Simplified in Bangla."
-            description="A premium marketplace where scholars monetize knowledge and learners master the future through high-trust, low-friction storytelling."
-          >
+        <section className="cinematic-hero">
+          <div className="cinematic-hero__backdrop" aria-hidden="true" />
+          <div className="cinematic-hero__scrim" aria-hidden="true" />
+          <div className="cinematic-hero__content">
+            <div className="cinematic-hero__badges">
+              <span className="chip chip--accent">Featured Research</span>
+              <span className="chip chip--outline">{featured.episode}</span>
+            </div>
+            <h1 className="hero-title">
+              The World&apos;s Best Research,
+              <br />
+              <span className="hero-title__accent">Simplified in Bangla.</span>
+            </h1>
+            <p className="cinematic-hero__lead">
+              A premium marketplace where scholars monetize knowledge and learners master the future through
+              high-trust, low-friction storytelling.
+            </p>
             <div className="hero-actions">
-              <Link className="button button--primary button--large" href="#archive">
-                Explore Library
+              <Link className="button button--light button--large" href="#archive">
+                <Icon className="icon-sm" name="play" />
+                Explore the Archive
               </Link>
               <Link className="button button--secondary button--large" href="/auth">
+                <Icon className="icon-sm" name="spark" />
                 Sign In with Phone
               </Link>
             </div>
@@ -31,24 +47,6 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-          </GradientPanel>
-
-          <div className="hero-media-card">
-            <div className="hero-media-card__visual" role="img" aria-label="Featured research documentary preview">
-              <button className="play-button" type="button" aria-label="Play featured documentary">
-                <Icon className="icon-md" name="play" />
-              </button>
-            </div>
-            <div className="hero-media-card__meta">
-              <div>
-                <p className="eyebrow eyebrow--blue">Featured Premiere</p>
-                <h2>The Illuminated Archive</h2>
-              </div>
-              <p>
-                A cinematic launch surface for research documentaries, scholar-led explanation, and trust-first
-                learning for the Next Billion Users.
-              </p>
-            </div>
           </div>
         </section>
 
@@ -59,30 +57,37 @@ export default function HomePage() {
               <h2>Netflix for Knowledge</h2>
             </div>
             <p>
-              High-production value research documentaries and deep-dives, organized into bingeable episodes for
-              learners across South Asia.
+              High-production value research documentaries and deep-dives, organized into bingeable episodes
+              for learners across South Asia.
             </p>
           </div>
 
-          <div className="archive-grid">
+          <div className="carousel-track">
             {archiveCards.map((card) => (
-              <article key={card.title} className="archive-card">
-                <div className="archive-card__visual" style={{ background: card.accent }}>
-                  <span className="episode-pill">{card.episode}</span>
+              <article key={card.title} className="poster-card">
+                <div
+                  className="poster-card__visual"
+                  style={{ background: card.accent }}
+                  role="img"
+                  aria-label={`${card.title} episode artwork`}
+                >
+                  <div className="poster-card__badges">
+                    <span className="badge-solid">{card.episode}</span>
+                    <span className="badge-outline">Research</span>
+                  </div>
+                  <div className="poster-card__overlay">
+                    <p>{card.description}</p>
+                  </div>
                 </div>
-                <div className="archive-card__body">
+                <div className="poster-card__body">
                   <h3>{card.title}</h3>
-                  <p>{card.description}</p>
-                  <Link className="inline-link" href="/community">
-                    Continue to discussion
-                    <Icon className="icon-sm" name="arrow-right" />
-                  </Link>
+                  <p>{card.episode}</p>
                 </div>
               </article>
             ))}
           </div>
 
-          <Link className="inline-link inline-link--featured" href="/community">
+          <Link className="inline-link inline-link--featured" href="/content">
             Browse Full Archive
             <Icon className="icon-sm" name="arrow-right" />
           </Link>
@@ -93,8 +98,8 @@ export default function HomePage() {
             <p className="eyebrow eyebrow--blue">Scholarly Discourse</p>
             <h2>Community Hub for discussion, debate, and guided research.</h2>
             <p>
-              Connect learners with global researchers, move from passive viewing to active inquiry, and build visible
-              trust through participatory knowledge surfaces.
+              Connect learners with global researchers, move from passive viewing to active inquiry, and build
+              visible trust through participatory knowledge surfaces.
             </p>
           </div>
           <div className="community-preview__cards">
@@ -119,8 +124,8 @@ export default function HomePage() {
           <p className="eyebrow eyebrow--blue">Scholar Growth</p>
           <h2>Ready to illuminate the path for others?</h2>
           <p>
-            Join Okkhor as a verified scholar, contribute premium research interpretation, and guide the next generation
-            of Bangla-first learning.
+            Join Okkhor as a verified scholar, contribute premium research interpretation, and guide the next
+            generation of Bangla-first learning.
           </p>
           <div className="hero-actions">
             <Link className="button button--primary button--large" href="/auth">
