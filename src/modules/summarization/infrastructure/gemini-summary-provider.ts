@@ -1,8 +1,9 @@
+import {
+  resolveSummaryModel,
+  resolveSummaryTimeoutMs,
+} from "@/src/modules/summarization/domain/summarization-config";
 import { SummarizationError } from "@/src/modules/summarization/domain/summarization-errors";
 import type { SummaryProvider, SummaryResult } from "@/src/modules/summarization/domain/summarization-types";
-
-const DEFAULT_MODEL = "gemini-2.0-flash";
-const DEFAULT_TIMEOUT_MS = 15000;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
@@ -12,18 +13,6 @@ const RESPONSE_SCHEMA = {
   },
   required: ["summaryEn", "summaryBn"],
 } as const;
-
-function resolveModel(): string {
-  const model = process.env.GEMINI_MODEL?.trim();
-
-  return model && model.length > 0 ? model : DEFAULT_MODEL;
-}
-
-function resolveTimeoutMs(): number {
-  const raw = Number.parseInt(process.env.AI_SUMMARY_TIMEOUT_MS ?? "", 10);
-
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
-}
 
 function buildPrompt(input: { title: string; abstract: string; sourceLanguage: string }): string {
   return [
@@ -73,10 +62,10 @@ export function createGeminiSummaryProvider(): SummaryProvider {
   return {
     async summarize(input) {
       const apiKey = process.env.GEMINI_API_KEY;
-      const model = resolveModel();
+      const model = resolveSummaryModel();
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey ?? ""}`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), resolveTimeoutMs());
+      const timer = setTimeout(() => controller.abort(), resolveSummaryTimeoutMs());
 
       try {
         const response = await fetch(url, {

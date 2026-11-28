@@ -133,7 +133,7 @@ TTL defaults are set on first write and are never extended on later writes, so a
 ### `GEMINI_API_KEY`
 
 - the Google Gemini API key used by the `gemini` provider
-- read only in `src/modules/summarization/infrastructure/gemini-summary-provider.ts`
+- read in `src/modules/summarization/infrastructure/gemini-summary-provider.ts` (to call the API), in `src/modules/summarization/domain/summarization-config.ts` (`auto` provider resolution), and by the read-only `/admin/ai` surface (to report whether it is set, never its value)
 - when unset, `AI_SUMMARY_DRIVER=auto` returns `AI_UNAVAILABLE` (503) for a publish that needs a summary
 
 ### `GEMINI_MODEL`

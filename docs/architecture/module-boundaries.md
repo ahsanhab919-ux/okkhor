@@ -413,6 +413,13 @@ Current dependency edges (verified in code):
   `AUTH_RATE_LIMITS`, and the token/reset-code lifetimes from `auth-config` — and renders them
   read-only, inventing no control the platform cannot honour (`ADR-001`). Like the other console
   surfaces it is reached from the `/admin` hub.
+- The **AI summarization slice** adds no module, no edge, and no persistence. It centralises the
+  summarization configuration (`AI_SUMMARY_DRIVER`, `GEMINI_MODEL`, `AI_SUMMARY_TIMEOUT_MS`) in one
+  domain file (`summarization-config.ts`) that the provider selector and the Gemini provider now read
+  through, so the route (`app/admin/ai/page.tsx`) reports exactly the values a publish would use —
+  the resolved provider, model, and timeout — alongside the summary coverage counted from `content`'s
+  `listContentItems`. It edits nothing and runs nothing (`ADR-001`), and is reached from the `/admin`
+  hub.
 
 Rules that follow:
 

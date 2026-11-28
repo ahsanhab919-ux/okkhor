@@ -1,19 +1,8 @@
+import { resolveSummaryProviderName } from "@/src/modules/summarization/domain/summarization-config";
 import { SummarizationError } from "@/src/modules/summarization/domain/summarization-errors";
 import type { SummaryProvider } from "@/src/modules/summarization/domain/summarization-types";
 import { getFakeSummaryProvider } from "@/src/modules/summarization/infrastructure/fake-summary-provider";
 import { getGeminiSummaryProvider } from "@/src/modules/summarization/infrastructure/gemini-summary-provider";
-
-type AiSummaryDriver = "auto" | "fake" | "gemini";
-
-function getAiSummaryDriver(): AiSummaryDriver {
-  const driver = process.env.AI_SUMMARY_DRIVER;
-
-  if (driver === "fake" || driver === "gemini") {
-    return driver;
-  }
-
-  return "auto";
-}
 
 /**
  * Resolves the summarization provider from `AI_SUMMARY_DRIVER`. `auto` uses the fake provider
@@ -21,21 +10,13 @@ function getAiSummaryDriver(): AiSummaryDriver {
  * `AI_UNAVAILABLE` (503) rather than failing silently.
  */
 export function getSummaryProvider(): SummaryProvider {
-  const driver = getAiSummaryDriver();
+  const name = resolveSummaryProviderName();
 
-  if (driver === "fake") {
+  if (name === "fake") {
     return getFakeSummaryProvider();
   }
 
-  if (driver === "gemini") {
-    return getGeminiSummaryProvider();
-  }
-
-  if (process.env.NODE_ENV === "test") {
-    return getFakeSummaryProvider();
-  }
-
-  if (process.env.GEMINI_API_KEY) {
+  if (name === "gemini") {
     return getGeminiSummaryProvider();
   }
 
