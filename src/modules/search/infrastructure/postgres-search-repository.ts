@@ -105,7 +105,9 @@ async function searchResearch(pool: Pool, query: SearchQuery): Promise<SearchDoc
 
 async function searchThreads(pool: Pool, query: SearchQuery): Promise<SearchDocument[]> {
   const values: unknown[] = [];
-  const conditions: string[] = [];
+  // Hidden threads are a moderator action: they are never searchable, matching the community
+  // read path (`community-moderation-slice.md` §5).
+  const conditions: string[] = ["moderation_state = 'visible'"];
 
   for (const token of query.tokens) {
     values.push(likePattern(token));

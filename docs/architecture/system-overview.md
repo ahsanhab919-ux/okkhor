@@ -26,6 +26,7 @@ At the current stage the deployed product is intentionally narrow:
 - a public research-comprehension read path (`/content`, `/content/[id]`)
 - a per-member "My Library" (`/library`) over saved research items
 - member profile pages — the owner's `/profile` and a public footprint at `/u/[id]`
+- an administrator moderation console (`/admin/community`) over the discussion surface
 - JSON APIs for identity and content, and a health probe
 
 Deeper domains named in `ADR-001` (Video Processing, Video Delivery, Search,
@@ -107,7 +108,8 @@ The driver-selection pattern is shared across both boundaries (see
 ## 6. Request Lifecycle
 
 1. **Edge middleware** (`middleware.ts`) runs for the protected matchers
-   (`/community/:path*`, `/scholar-verify/:path*`, `/library/:path*`, `/profile/:path*`). It
+   (`/community/:path*`, `/scholar-verify/:path*`, `/admin/:path*`, `/library/:path*`,
+   `/profile/:path*`). It
    verifies the access-token cookie at the edge and redirects to `/auth?next=…` when the token
    is missing or invalid.
 2. **Route handler** (`app/api/**/route.ts`) or **server component** (`app/**/page.tsx`)
@@ -121,7 +123,10 @@ The driver-selection pattern is shared across both boundaries (see
 
 Middleware is intentionally thin: it only gates routes. Authorization that depends on
 business state is enforced inside the application layer (`ADR-001`: authorization rules must
-be enforced at server boundaries inside the monolith).
+be enforced at server boundaries inside the monolith). The administrator consoles follow the
+same rule: the `/admin/community` layout resolves the viewer in the composition root
+(`app/community-session.ts`) and renders the restricted screen unless `canModerate` passes,
+and the moderation routes re-check the same admin-only gate server-side.
 
 ## 7. Module Map
 

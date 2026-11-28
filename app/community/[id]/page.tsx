@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import React from "react";
 
 import { getThread } from "@/src/modules/community/application/community-service";
+import { canModerate } from "@/src/modules/community/domain/community-authorization";
 import { CommunityError } from "@/src/modules/community/domain/community-errors";
+import { ModerationControls } from "@/src/modules/community/ui/moderation-controls";
 import { ReplyForm } from "@/src/modules/community/ui/reply-form";
+
+import { getCommunityViewer } from "../../community-session";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +26,15 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
     throw error;
   });
 
+  const viewer = await getCommunityViewer();
+  const moderator = viewer ? canModerate(viewer.user.roles) : false;
+
   return (
     <section className="content-band">
       <div className="section-heading">
         <div>
           <span className="pill">{thread.category}</span>
+          {thread.locked ? <span className="pill">Locked</span> : null}
           <h1>{thread.title}</h1>
           <p>Started {thread.createdAt.slice(0, 10)}</p>
         </div>
@@ -39,6 +47,12 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
         <p>{thread.body}</p>
       </article>
 
+      {thread.locked ? (
+        <p className="session-banner" role="status">
+          This thread is locked. New replies are closed.
+        </p>
+      ) : null}
+
       <section className="content-band">
         <h2>Replies</h2>
         {replies.length === 0 ? (
@@ -49,13 +63,29 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
               <li key={reply.id} className="activity-entry">
                 <p>{reply.body}</p>
                 <span>{reply.createdAt.slice(0, 10)}</span>
+                {moderator ? (
+                  <ModerationControls
+                    id={reply.id}
+                    moderationState={reply.moderationState}
+                    target="reply"
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <ReplyForm threadId={thread.id} />
+      {thread.locked ? null : <ReplyForm threadId={thread.id} />}
+
+      {moderator ? (
+        <ModerationControls
+          id={thread.id}
+          locked={thread.locked}
+          moderationState={thread.moderationState}
+          target="thread"
+        />
+      ) : null}
     </section>
   );
 }

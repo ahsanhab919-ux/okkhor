@@ -5,6 +5,7 @@ import type {
   CommunityRepository,
   CommunityReply,
   CommunityThread,
+  ModerationState,
 } from "@/src/modules/community/domain/community-types";
 import { getPostgresPoolConfig } from "@/src/modules/platform/infrastructure/postgres-config";
 
@@ -16,6 +17,11 @@ type PostgresCommunityThreadRow = {
   category: string;
   created_at: string;
   updated_at: string;
+  moderation_state: string;
+  locked: boolean;
+  moderated_by: string | null;
+  moderated_at: string | null;
+  moderation_note: string | null;
   reply_count?: number;
 };
 
@@ -25,6 +31,10 @@ type PostgresCommunityReplyRow = {
   author_id: string;
   body: string;
   created_at: string;
+  moderation_state: string;
+  moderated_by: string | null;
+  moderated_at: string | null;
+  moderation_note: string | null;
 };
 
 declare global {
@@ -41,6 +51,11 @@ function mapThreadRow(row: PostgresCommunityThreadRow): CommunityThread {
     category: row.category,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    moderationState: row.moderation_state as ModerationState,
+    locked: row.locked,
+    moderatedBy: row.moderated_by ?? undefined,
+    moderatedAt: row.moderated_at ?? undefined,
+    moderationNote: row.moderation_note ?? undefined,
   };
 }
 
@@ -51,6 +66,10 @@ function mapReplyRow(row: PostgresCommunityReplyRow): CommunityReply {
     authorId: row.author_id,
     body: row.body,
     createdAt: row.created_at,
+    moderationState: row.moderation_state as ModerationState,
+    moderatedBy: row.moderated_by ?? undefined,
+    moderatedAt: row.moderated_at ?? undefined,
+    moderationNote: row.moderation_note ?? undefined,
   };
 }
 
@@ -64,20 +83,29 @@ function getPool() {
 
 function createPostgresCommunityRepository(pool: Pool): CommunityRepository {
   return {
-    async listThreads({ limit, cursor }) {
+    async listThreads({ limit, cursor, includeHidden = false }) {
       const values: unknown[] = [];
-      let whereClause = "";
+      const conditions: string[] = [];
+
+      if (!includeHidden) {
+        conditions.push("t.moderation_state = 'visible'");
+      }
 
       if (cursor) {
         values.push(cursor.createdAt, cursor.id);
-        whereClause = "WHERE (t.created_at, t.id) < ($1, $2)";
+        conditions.push(`(t.created_at, t.id) < ($${values.length - 1}, $${values.length})`);
       }
 
       values.push(limit + 1);
 
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
       const result = await pool.query<PostgresCommunityThreadRow>(
         `
-          SELECT t.*, (SELECT COUNT(*) FROM community_replies r WHERE r.thread_id = t.id)::int AS reply_count
+          SELECT t.*, (
+            SELECT COUNT(*) FROM community_replies r
+            WHERE r.thread_id = t.id AND r.moderation_state = 'visible'
+          )::int AS reply_count
           FROM community_threads t
           ${whereClause}
           ORDER BY t.created_at DESC, t.id DESC
@@ -106,9 +134,12 @@ function createPostgresCommunityRepository(pool: Pool): CommunityRepository {
     async listThreadsByAuthor(authorId, { limit }) {
       const result = await pool.query<PostgresCommunityThreadRow>(
         `
-          SELECT t.*, (SELECT COUNT(*) FROM community_replies r WHERE r.thread_id = t.id)::int AS reply_count
+          SELECT t.*, (
+            SELECT COUNT(*) FROM community_replies r
+            WHERE r.thread_id = t.id AND r.moderation_state = 'visible'
+          )::int AS reply_count
           FROM community_threads t
-          WHERE t.author_id = $1
+          WHERE t.author_id = $1 AND t.moderation_state = 'visible'
           ORDER BY t.created_at DESC, t.id DESC
           LIMIT $2
         `,
@@ -120,22 +151,45 @@ function createPostgresCommunityRepository(pool: Pool): CommunityRepository {
     async createThread(thread) {
       await pool.query(
         `
-          INSERT INTO community_threads (id, author_id, title, body, category, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO community_threads (
+            id, author_id, title, body, category, created_at, updated_at,
+            moderation_state, locked, moderated_by, moderated_at, moderation_note
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
           ON CONFLICT (id) DO UPDATE SET
             author_id = EXCLUDED.author_id,
             title = EXCLUDED.title,
             body = EXCLUDED.body,
             category = EXCLUDED.category,
             created_at = EXCLUDED.created_at,
-            updated_at = EXCLUDED.updated_at
+            updated_at = EXCLUDED.updated_at,
+            moderation_state = EXCLUDED.moderation_state,
+            locked = EXCLUDED.locked,
+            moderated_by = EXCLUDED.moderated_by,
+            moderated_at = EXCLUDED.moderated_at,
+            moderation_note = EXCLUDED.moderation_note
         `,
-        [thread.id, thread.authorId, thread.title, thread.body, thread.category, thread.createdAt, thread.updatedAt],
+        [
+          thread.id,
+          thread.authorId,
+          thread.title,
+          thread.body,
+          thread.category,
+          thread.createdAt,
+          thread.updatedAt,
+          thread.moderationState,
+          thread.locked,
+          thread.moderatedBy ?? null,
+          thread.moderatedAt ?? null,
+          thread.moderationNote ?? null,
+        ],
       );
     },
-    async listRepliesByThreadId(threadId) {
+    async listRepliesByThreadId(threadId, { includeHidden = false } = {}) {
+      const visibilityClause = includeHidden ? "" : "AND moderation_state = 'visible'";
+
       const result = await pool.query<PostgresCommunityReplyRow>(
-        "SELECT * FROM community_replies WHERE thread_id = $1 ORDER BY created_at ASC, id ASC",
+        `SELECT * FROM community_replies WHERE thread_id = $1 ${visibilityClause} ORDER BY created_at ASC, id ASC`,
         [threadId],
       );
 
@@ -144,15 +198,64 @@ function createPostgresCommunityRepository(pool: Pool): CommunityRepository {
     async createReply(reply) {
       await pool.query(
         `
-          INSERT INTO community_replies (id, thread_id, author_id, body, created_at)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO community_replies (id, thread_id, author_id, body, created_at, moderation_state)
+          VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (id) DO UPDATE SET
             thread_id = EXCLUDED.thread_id,
             author_id = EXCLUDED.author_id,
             body = EXCLUDED.body,
-            created_at = EXCLUDED.created_at
+            created_at = EXCLUDED.created_at,
+            moderation_state = EXCLUDED.moderation_state
         `,
-        [reply.id, reply.threadId, reply.authorId, reply.body, reply.createdAt],
+        [reply.id, reply.threadId, reply.authorId, reply.body, reply.createdAt, reply.moderationState],
+      );
+    },
+    async getReplyById(id) {
+      const result = await pool.query<PostgresCommunityReplyRow>(
+        "SELECT * FROM community_replies WHERE id = $1 LIMIT 1",
+        [id],
+      );
+
+      return result.rows[0] ? mapReplyRow(result.rows[0]) : undefined;
+    },
+    async updateThreadModeration(thread) {
+      await pool.query(
+        `
+          UPDATE community_threads SET
+            moderation_state = $2,
+            locked = $3,
+            moderated_by = $4,
+            moderated_at = $5,
+            moderation_note = $6
+          WHERE id = $1
+        `,
+        [
+          thread.id,
+          thread.moderationState,
+          thread.locked,
+          thread.moderatedBy ?? null,
+          thread.moderatedAt ?? null,
+          thread.moderationNote ?? null,
+        ],
+      );
+    },
+    async updateReplyModeration(reply) {
+      await pool.query(
+        `
+          UPDATE community_replies SET
+            moderation_state = $2,
+            moderated_by = $3,
+            moderated_at = $4,
+            moderation_note = $5
+          WHERE id = $1
+        `,
+        [
+          reply.id,
+          reply.moderationState,
+          reply.moderatedBy ?? null,
+          reply.moderatedAt ?? null,
+          reply.moderationNote ?? null,
+        ],
       );
     },
   };
