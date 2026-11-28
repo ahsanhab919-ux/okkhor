@@ -31,6 +31,8 @@ At the current stage the deployed product is intentionally narrow:
 - an administrator moderation console (`/admin/community`) over the discussion surface
 - a member report path over threads and replies, with an administrator triage queue
   (`/admin/community/reports`)
+- an administrator console overview (`/admin`) that indexes the moderation, report, and
+  verification queues with figures counted from the records
 - browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
   and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe
