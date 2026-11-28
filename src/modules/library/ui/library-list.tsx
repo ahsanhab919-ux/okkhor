@@ -11,8 +11,9 @@ export type LibraryEntry = {
 };
 
 /**
- * The saved-items list: each entry reuses the archive card and links to `/content/[id]`, with a
- * Remove affordance. An empty library shows an empty state.
+ * The saved-items grid, aligned to the Stitch "Saved Archives" artifact grid: each card carries a
+ * kind badge and tag chips, the item title, its Bangla summary, and a footer with the read link and
+ * the Remove affordance. An empty library shows the empty state. Only real item fields are shown.
  */
 export function LibraryList({ entries }: { entries: LibraryEntry[] }) {
   if (entries.length === 0) {
@@ -28,17 +29,34 @@ export function LibraryList({ entries }: { entries: LibraryEntry[] }) {
   }
 
   return (
-    <div className="archive-grid">
+    <div className="library-grid">
       {entries.map(({ item, savedAt }) => (
-        <article key={item.id} className="archive-card">
-          <div className="archive-card__body">
-            <div>
-              <span className="pill">Saved {savedAt.slice(0, 10)}</span>
-            </div>
-            <h3>{item.title}</h3>
-            <p lang="bn">{item.summaryBn}</p>
+        <article key={item.id} className="library-card">
+          <div className="library-card__top">
+            <span className="discussion-card__badge">Saved</span>
+            {item.tags.slice(0, 2).map((tag) => (
+              <span key={tag} className="pill">
+                {tag}
+              </span>
+            ))}
+          </div>
 
-            <div className="discussion-card__actions">
+          <h3 className="library-card__title">
+            <Link className="inline-link" href={`/content/${item.id}`}>
+              {item.title}
+            </Link>
+          </h3>
+
+          <p className="library-card__summary" lang="bn">
+            {item.summaryBn}
+          </p>
+
+          <div className="library-card__footer">
+            <span className="library-card__meta">
+              {item.sourceLanguage.toUpperCase()} · Saved {savedAt.slice(0, 10)}
+            </span>
+
+            <div className="library-card__actions">
               <Link className="inline-link" href={`/content/${item.id}`}>
                 Read the summary
                 <Icon className="icon-sm" name="arrow-right" />

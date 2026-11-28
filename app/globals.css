@@ -2731,3 +2731,134 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* Library — the Stitch "Saved Archives" artifact grid: a breadcrumb hero over saved-item cards.
+   Clusters, sort tabs and pagination are omitted because the library domain does not back them. */
+.library-page {
+  display: grid;
+  gap: 28px;
+}
+
+.library-hero {
+  display: grid;
+  gap: 10px;
+}
+
+.library-hero__crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary);
+  font-family: var(--font-headline);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.library-hero__crumbs > span:first-child,
+.library-hero__crumbs > span:nth-child(2) {
+  color: rgba(173, 198, 255, 0.6);
+}
+
+.library-hero__crumb-current {
+  color: var(--color-primary);
+}
+
+.library-hero__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.library-hero__lead {
+  margin: 0;
+  max-width: 640px;
+  color: var(--color-on-surface-variant);
+  line-height: 1.6;
+}
+
+.library-hero__count {
+  justify-self: start;
+  padding: 3px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.library-card {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-container-low);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.library-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-line-strong);
+  background: var(--color-surface-container);
+}
+
+.library-card__top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.library-card__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.library-card__summary {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-family: var(--font-bangla);
+  line-height: 1.7;
+}
+
+.library-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-line);
+}
+
+.library-card__meta {
+  color: var(--color-outline);
+  font-size: 0.82rem;
+}
+
+.library-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .library-card {
+    padding: 18px;
+  }
+}
