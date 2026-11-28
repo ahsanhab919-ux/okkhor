@@ -8,6 +8,11 @@ import { getLibraryViewer } from "../library-session";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The library page, aligned to the Stitch "Saved Archives" screen: a breadcrumb hero over the
+ * saved-items grid. The library module returns only saves, so clusters, sort tabs and pagination —
+ * none of which the domain backs — are deliberately omitted.
+ */
 export default async function LibraryPage() {
   const viewer = await getLibraryViewer();
   const saves = viewer ? await listSavedItems(viewer.actor, { limit: 20 }) : [];
@@ -20,16 +25,25 @@ export default async function LibraryPage() {
   });
 
   return (
-    <section className="content-band">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow eyebrow--blue">Reading List</p>
-          <h1>My Library</h1>
-        </div>
-        <p>Everything you saved, newest first. Items that are no longer published drop off the list.</p>
-      </div>
+    <div className="library-page">
+      <section className="library-hero">
+        <nav aria-label="Breadcrumb" className="library-hero__crumbs">
+          <span>Personal</span>
+          <span aria-hidden="true">›</span>
+          <span className="library-hero__crumb-current">Library</span>
+        </nav>
+        <h1 className="library-hero__title">My Library</h1>
+        <p className="library-hero__lead">
+          Everything you saved, newest first. Items that are no longer published drop off the list.
+        </p>
+        {entries.length > 0 ? (
+          <span className="library-hero__count">
+            {entries.length} {entries.length === 1 ? "saved item" : "saved items"}
+          </span>
+        ) : null}
+      </section>
 
       <LibraryList entries={entries} />
-    </section>
+    </div>
   );
 }
