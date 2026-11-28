@@ -69,6 +69,7 @@ Exactly these files carry `"use client"` (the interactive islands):
 | `src/modules/community/ui/reply-form.tsx` | reply form `useState`, submit handler, `router.refresh()` | drives `POST /api/community/threads/[id]/replies` |
 | `src/modules/search/ui/search-form.tsx` | search form `useState`, submit handler, `useRouter` | pushes query params to `/search` (server reads them) |
 | `src/modules/content/ui/item-editor-form.tsx` | authoring form `useState`, submit handler, `useRouter` | drives `POST`/`PATCH /api/content/items`; shows the transient AI English preview on publish |
+| `src/modules/library/ui/save-item-button.tsx` | Save/Saved toggle `useState`, handlers, `useRouter` | drives `POST`/`DELETE /api/library/items`; also exports the `RemoveSavedItemButton` used on `/library` |
 
 `src/modules/identity/client/session-client.ts` is also `"use client"` but is a **helper
 module**, not a component: it wraps `fetch` against the auth API with
@@ -103,6 +104,15 @@ is optional to save; on a successful publish the response carries a transient En
 (§4.24 of [api-contracts.md](api-contracts.md)) which the island shows as a read-only preview
 (before navigating), holding navigation until the author continues. The read path
 (`content-views.tsx` and the `/content` pages) still ships no client island.
+
+The `library` module adds **one** island — `save-item-button.tsx`, which exports both the
+`SaveItemButton` (the Save/Saved toggle on `/content/[id]`) and the `RemoveSavedItemButton`
+(the Remove action on `/library`). Both are tiny leaves that own only a boolean and one fetch:
+they receive a serializable `itemId` (plus `initialSaved` and `authenticated`) as props, then
+post/delete against the library API and call `router.refresh()`. The item detail page stays a
+server component: it resolves an *optional* viewer and the saved state server-side and renders
+the island, so an anonymous visitor gets a sign-in link and no toggle state is shipped to the
+client until a member arrives.
 
 ## 6. Import Graph Nuance
 

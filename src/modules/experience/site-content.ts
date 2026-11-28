@@ -22,6 +22,7 @@ export const publicNavItems: NavItem[] = [
   { label: "Search", href: "/search" },
   { label: "Scholars", href: "/scholar-verify" },
   { label: "Community", href: "/community" },
+  { label: "My Library", href: "/library" },
 ];
 
 export const archiveCards: ArchiveCard[] = [

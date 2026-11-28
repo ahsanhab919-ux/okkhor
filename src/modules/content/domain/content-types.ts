@@ -78,6 +78,11 @@ export type ContentRepository = {
   /** All items regardless of status, newest-edited first. The authoring view. */
   listItems(): Promise<ResearchItem[]>;
   getPublishedItemById(id: string): Promise<ResearchItem | undefined>;
+  /**
+   * Published items for the given ids, in the order requested; ids that do not resolve to a
+   * published item are omitted. Used by the composition root to hydrate a saved list.
+   */
+  getPublishedItemsByIds(ids: string[]): Promise<ResearchItem[]>;
   /** Any item regardless of status. The authoring path. */
   getItemById(id: string): Promise<ResearchItem | undefined>;
   createItem(item: ResearchItem): Promise<void>;
