@@ -152,19 +152,42 @@ src/modules/verification/
 `identity`; the role *grant* on approval is performed by the composition root (`app/**`)
 calling identity's `grantUserRole` public surface.
 
+### 5.6 `community` — implemented, fully layered
+
+```
+src/modules/community/
+  domain/         community-types.ts, community-errors.ts,
+                  community-schemas.ts, community-pagination.ts
+  application/    community-service.ts      (list/create/read/reply use cases, cursor codec)
+  infrastructure/ community-repository.ts   (driver selector)
+                  community-store.ts         (in-memory repository)
+                  postgres-community-repository.ts
+  api/            community-http.ts         (response + error shaping)
+  ui/             thread-form.tsx           (create island)
+                  reply-form.tsx             (reply island)
+```
+
+`community` owns member-authored discussion: threads and their flat, chronological replies. It
+depends on `platform` for the shared Postgres pool config and imports identity **types only**
+(`UserRole`); the acting member is resolved in the composition root (`app/**`) and passed in as
+`{ id, roles }`. It does not import `content` or `verification`.
+
 ## 6. Cross-Module Rules
 
 Current dependency edges (verified in code):
 
-- `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, `content`, and
-  `verification`.
+- `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, `content`,
+  `verification`, and `community`.
 - `identity` depends on `platform` for the ephemeral store (`auth-rate-limit.ts` imports
   `getEphemeralStore`).
 - `content` depends on `platform` for the shared Postgres pool config
   (`postgres-content-repository.ts` imports `getPostgresPoolConfig`).
 - `verification` depends on `platform` for the shared Postgres pool config
   (`postgres-verification-repository.ts` imports `getPostgresPoolConfig`).
+- `community` depends on `platform` for the shared Postgres pool config
+  (`postgres-community-repository.ts` imports `getPostgresPoolConfig`).
 - `experience` imports `identity` **types only** (`UserProfile`) for presentational props.
+- `community` imports `identity` **types only** (`UserRole`) for its actor type.
 
 Rules that follow:
 

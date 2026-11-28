@@ -28,15 +28,18 @@ route files.
 
   Unhandled failures return `{ "error": { "code": "AUTH_UNKNOWN", "message": "Unexpected authentication failure." } }`
   with status `500`. The content endpoints reuse the same envelope with their own `CONTENT_*`
-  codes (see §4.9–§4.12 and §6) and the verification endpoints with their own `VERIFICATION_*`
-  codes (see §4.13–§4.18 and §6).
+  codes (see §4.9–§4.12 and §6), the verification endpoints with their own `VERIFICATION_*`
+  codes (see §4.13–§4.18 and §6), and the community endpoints with their own `COMMUNITY_*`
+  codes (see §4.19–§4.22 and §6).
 - **Validation:** request bodies are validated with Zod schemas in
   `src/modules/identity/domain/auth-schemas.ts`. The first validation issue message becomes
   the `AUTH_VALIDATION_FAILED` message (`400`). Content writes use
   `src/modules/content/domain/content-schemas.ts`, where the same rule yields
   `CONTENT_VALIDATION_FAILED` (`400`); verification writes use
   `src/modules/verification/domain/verification-schemas.ts`, yielding
-  `VERIFICATION_VALIDATION_FAILED` (`400`).
+  `VERIFICATION_VALIDATION_FAILED` (`400`); community writes use
+  `src/modules/community/domain/community-schemas.ts`, yielding
+  `COMMUNITY_VALIDATION_FAILED` (`400`).
 
 ## 3. Cookie Contract
 
@@ -331,6 +334,65 @@ Approve or reject a submitted application. Requires the `admin` role.
   `VERIFICATION_CONFLICT` (409 — the application is not `submitted`, or `updatedAt` did not
   match), `VERIFICATION_UNKNOWN` (500).
 
+### 4.19 `GET /api/community/threads`
+
+List discussion threads, newest first. Requires an authenticated session (any role). See
+[community-slice.md](community-slice.md).
+
+- **Query:** `?limit=&cursor=`
+  - `limit` — page size, default `20`, clamped to `[1, 50]`.
+  - `cursor` — opaque keyset cursor returned as `nextCursor` by a previous page.
+- **Success** `200`:
+
+  ```json
+  {
+    "threads": [ { "…CommunityThreadSummary…" } ],
+    "nextCursor": "…"
+  }
+  ```
+
+  Each summary is a `CommunityThread` plus a derived `replyCount`. `nextCursor` is present only
+  when a further page exists.
+- **Errors:** `AUTH_UNAUTHORIZED` (401 — no/invalid session), `COMMUNITY_INVALID_CURSOR` (400)
+  when `cursor` is malformed, `COMMUNITY_UNKNOWN` (500).
+
+### 4.20 `POST /api/community/threads`
+
+Create a thread. Requires an authenticated session (any role).
+
+- **Request**
+
+  ```json
+  { "title": "…", "body": "…", "category": "General" }
+  ```
+
+  `title` (1–200) and `body` (1–10000) are required and non-empty; `category` is optional
+  (trimmed, 2–60) and defaults to `General`. The creating user is stamped as `authorId` from
+  the session — the body never supplies it.
+- **Success** `201`: `{ "thread": { "…CommunityThread…" } }`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_VALIDATION_FAILED` (400),
+  `COMMUNITY_UNKNOWN` (500).
+
+### 4.21 `GET /api/community/threads/[id]`
+
+Read one thread with its replies (chronological, oldest first). Requires an authenticated
+session (any role).
+
+- **Request:** `id` is the thread UUID path segment.
+- **Success** `200`: `{ "thread": { "…CommunityThread…" }, "replies": [ { "…CommunityReply…" } ] }`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_THREAD_NOT_FOUND` (404),
+  `COMMUNITY_UNKNOWN` (500).
+
+### 4.22 `POST /api/community/threads/[id]/replies`
+
+Add a reply to a thread. Requires an authenticated session (any role).
+
+- **Request:** `{ "body": "…" }` (required, 1–10000). `authorId` is stamped from the session;
+  the parent thread must exist.
+- **Success** `201`: `{ "reply": { "…CommunityReply…" } }`.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `COMMUNITY_VALIDATION_FAILED` (400),
+  `COMMUNITY_THREAD_NOT_FOUND` (404 — unknown parent thread), `COMMUNITY_UNKNOWN` (500).
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -389,6 +451,16 @@ The verification endpoints use a parallel set of codes, whose executable source 
 | `VERIFICATION_CONFLICT` | 409 | Duplicate application, a non-editable/non-reviewable state, or a stale write |
 | `VERIFICATION_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
+The community endpoints use a parallel set of codes, whose executable source of truth is
+`src/modules/community/domain/community-errors.ts`:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `COMMUNITY_VALIDATION_FAILED` | 400 | Request body failed schema validation |
+| `COMMUNITY_INVALID_CURSOR` | 400 | `cursor` query parameter is malformed |
+| `COMMUNITY_THREAD_NOT_FOUND` | 404 | Thread id is unknown |
+| `COMMUNITY_UNKNOWN` | 500 | Unhandled failure (fallback) |
+
 ## 7. Route Protection (non-API)
 
 The edge middleware (`middleware.ts`) gates page routes, not API routes:
@@ -404,6 +476,12 @@ renders the authoring UI only for `scholar`/`admin`, otherwise a restricted noti
 `/admin/verifications` is likewise gated server-side by role: the layout renders the review
 queue only for `admin`, otherwise a restricted notice (see
 [scholar-verification-slice.md](scholar-verification-slice.md)).
+
+`/community`, `/community/new`, and `/community/[id]` are covered by the `/community/:path*`
+matcher at the edge; the layout additionally resolves the session and renders the pages inside
+the protected workspace chrome (see [community-slice.md](community-slice.md)). The community
+endpoints (§4.19–§4.22) re-check the session defensively and return `AUTH_UNAUTHORIZED` (401)
+without one — there is no role requirement.
 
 The `/content` and `/content/[id]` pages are **not** gated: the read path is intentionally
 public (see `content-comprehension-slice.md`).

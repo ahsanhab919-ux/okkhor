@@ -8,16 +8,18 @@
 
 Define the data the system owns: the domain types the code speaks in, the PostgreSQL schema
 that persists them, the in-memory equivalent used in tests, and the optional ephemeral store.
-This is the schema of record for the `auth_*` tables, `content_items`, and
-`scholar_verifications`, and the contract every repository implementation must satisfy.
+This is the schema of record for the `auth_*` tables, `content_items`,
+`scholar_verifications`, `community_threads`, and `community_replies`, and the contract every
+repository implementation must satisfy.
 
 ## 2. Domain Types
 
 Identity types are defined in `src/modules/identity/domain/auth-types.ts` (§2.1–§2.5),
-content types in `src/modules/content/domain/content-types.ts` (§2.6), and verification types
-in `src/modules/verification/domain/verification-types.ts` (§2.7). Types are the shared
-language; storage is an implementation detail behind each module's repository interface
-(`AuthRepository`, `ContentRepository`, `VerificationRepository`).
+content types in `src/modules/content/domain/content-types.ts` (§2.6), verification types
+in `src/modules/verification/domain/verification-types.ts` (§2.7), and community types in
+`src/modules/community/domain/community-types.ts` (§2.8). Types are the shared language;
+storage is an implementation detail behind each module's repository interface
+(`AuthRepository`, `ContentRepository`, `VerificationRepository`, `CommunityRepository`).
 
 ### 2.1 `UserProfile`
 
@@ -129,6 +131,41 @@ and `VerificationRepository` (`getByApplicantId`, `getById`, `listByStatus`, `cr
 (`canApplicantEdit`, `canReviewStatus`) live in `verification-authorization.ts` and
 `verification-state.ts`.
 
+### 2.8 `CommunityThread` and `CommunityReply` (community)
+
+The member-authored discussion thread and its replies. Defined in
+`src/modules/community/domain/community-types.ts`.
+
+`CommunityThread`:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | UUID, primary key, used as the `/community/[id]` path segment |
+| `authorId` | `string` | The creating member, stamped from the session |
+| `title` | `string` | 1–200 chars |
+| `body` | `string` | 1–10000 chars |
+| `category` | `string` | Free-text label (trimmed, 2–60), default `General` |
+| `createdAt` | `string` (ISO) | List sort key |
+| `updatedAt` | `string` (ISO) | |
+
+`CommunityReply`:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | UUID, primary key |
+| `threadId` | `string` | The parent thread |
+| `authorId` | `string` | The replying member, stamped from the session |
+| `body` | `string` | 1–10000 chars |
+| `createdAt` | `string` (ISO) | Reply sort key (ascending) |
+
+Related types: `CommunityThreadSummary` (`CommunityThread & { replyCount }`, derived on the list
+read), `CommunityThreadDetail` (`{ thread, replies }`), `CommunityActor` (`{ id, roles }`),
+`CreateThreadInput`, `CreateReplyInput`, `CommunityCursor = { createdAt, id }`,
+`ListThreadsOptions`, `ListThreadsResult`, and `CommunityRepository` (`listThreads`,
+`getThreadById`, `createThread`, `listRepliesByThreadId`, `createReply`). `replyCount` is
+derived, never stored — a correlated subquery in PostgreSQL, a scan over the replies map in
+memory.
+
 ## 3. PostgreSQL Schema
 
 The `auth_*` tables (§3.1–§3.3) are created by
@@ -137,7 +174,8 @@ The `auth_*` tables (§3.1–§3.3) are created by
 `migrations/20261128100000_add_content_item_authorship.cjs` (see `content-authoring-slice.md`),
 and `scholar_verifications` (§3.5) by
 `migrations/20261128110000_create_scholar_verifications.cjs` (see
-`scholar-verification-slice.md`).
+`scholar-verification-slice.md`), and `community_threads`/`community_replies` (§3.6–§3.7) by
+`migrations/20261128120000_create_community_tables.cjs` (see `community-slice.md`).
 Timestamps are stored as ISO-8601
 `text` (not `timestamptz`) because the domain deals in ISO strings and SQLite-free
 portability is preferred over database-side timezone arithmetic; `roles`, `tags`, `degrees`,
@@ -231,14 +269,46 @@ on `(status, submitted_at)` to support the review queue. The queue reads
 `WHERE status = $1 ORDER BY submitted_at DESC, id DESC`; there is no `applicant_id` FK to
 `auth_users` (modules stay decoupled, and identity owns its own table).
 
-### 3.6 Migration Operations
+### 3.6 `community_threads`
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `id` | `text` | primary key |
+| `author_id` | `text` | not null |
+| `title` | `text` | not null |
+| `body` | `text` | not null |
+| `category` | `text` | not null, default `General` |
+| `created_at` | `text` | not null |
+| `updated_at` | `text` | not null |
+
+Index: `community_threads_created_at_id_idx` on `(created_at, id)` to support the keyset list
+(`WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC`). The cursor is the same
+`"<createdAt>|<id>"` codec used by the content read path.
+
+### 3.7 `community_replies`
+
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `id` | `text` | primary key |
+| `thread_id` | `text` | not null |
+| `author_id` | `text` | not null |
+| `body` | `text` | not null |
+| `created_at` | `text` | not null |
+
+Index: `community_replies_thread_id_created_at_idx` on `(thread_id, created_at)` to support the
+per-thread reply read (`WHERE thread_id = $1 ORDER BY created_at ASC, id ASC`). There is no
+`thread_id`/`author_id` foreign key (matching the authorship and `applicant_id` columns —
+modules stay decoupled).
+
+### 3.8 Migration Operations
 
 Managed by `node-pg-migrate` (config keys kebab-case, `single-transaction: true`). See
 `docs/configuration.md` for commands. The auth migration's `down` drops the three tables in
 dependent order (`auth_password_resets`, then the index, then `auth_sessions`, then
 `auth_users`); the content migration's `down` drops the index, then `content_items`; the
 authorship migration's `down` drops `author_id` and `updated_by`; the verification migration's
-`down` drops both indexes, then `scholar_verifications`.
+`down` drops both indexes, then `scholar_verifications`; the community migration's `down` drops
+both indexes, then `community_replies`, then `community_threads`.
 
 ## 4. In-Memory Store
 
@@ -280,6 +350,16 @@ Defined in `src/modules/verification/infrastructure/verification-store.ts`.
 stored `updatedAt` matches the expected value (returning `false` otherwise, which the service
 turns into a `409`). Like the other stores it is cached on `globalThis`
 (`__okkhorVerificationStore`) and replaced between tests by `resetVerificationStoreForTesting()`.
+
+### 4.4 Community store
+
+Defined in `src/modules/community/infrastructure/community-store.ts`. `CommunityStore` holds two
+`Map`s keyed by `id`: `threads: Map<string, CommunityThread>` and
+`replies: Map<string, CommunityReply>`. `listThreads` sorts by `createdAt`/`id` descending,
+applies the keyset cursor, derives `replyCount` by scanning the replies map, and slices to the
+requested limit (returning a `nextCursor` while a further page remains). `listRepliesByThreadId`
+filters by `threadId` and sorts ascending. Like the other stores it is cached on `globalThis`
+(`__okkhorCommunityStore`) and replaced between tests by `resetCommunityStoreForTesting()`.
 
 ## 5. Persistence Driver Selection
 
@@ -363,6 +443,25 @@ Both implementations satisfy the `VerificationRepository` interface. Application
 `CONTENT_STORAGE_DRIVER`. The postgres `updateIfUnchanged` issues
 `UPDATE … WHERE id = $1 AND updated_at = $n` and returns whether exactly one row matched.
 
+### 5.6 Community repository
+
+`src/modules/community/infrastructure/community-repository.ts` is the single decision point for
+the `community` module, using its own driver variable:
+
+```
+COMMUNITY_STORAGE_DRIVER = auto | memory | postgres   (default: auto)
+  memory   → memory repository
+  postgres → postgres repository
+  auto     → NODE_ENV === "test"        → memory
+             else DATABASE_URL present  → postgres
+             else                       → throw (misconfiguration)
+```
+
+Both implementations satisfy the `CommunityRepository` interface. Application code calls
+`getCommunityRepository()`; the driver is independent of the other modules' drivers. The
+postgres list read is a keyset query with a correlated subquery for `replyCount`, and writes use
+`INSERT … ON CONFLICT (id) DO UPDATE`.
+
 ## 6. Data Classification and Handling
 
 | Data | Classification | Handling rule |
@@ -414,6 +513,10 @@ Automatic retention jobs are future work, not a current behaviour.
 - `src/modules/verification/domain/verification-types.ts` — verification domain types
 - `src/modules/verification/infrastructure/verification-store.ts` — in-memory verification store
 - `src/modules/verification/infrastructure/postgres-verification-repository.ts` — verification SQL implementation
+- `migrations/20261128120000_create_community_tables.cjs` — `community_threads`/`community_replies` schema of record
+- `src/modules/community/domain/community-types.ts` — community domain types
+- `src/modules/community/infrastructure/community-store.ts` — in-memory community store
+- `src/modules/community/infrastructure/postgres-community-repository.ts` — community SQL implementation
 - `docs/configuration.md` — connection env vars and migration commands
 - `docs/adr/ADR-004-adopt-postgresql-as-primary-source-of-truth.md`
 - `docs/adr/ADR-005-adopt-redis-for-cache-and-ephemeral-state.md`
