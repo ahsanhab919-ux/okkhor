@@ -25,6 +25,7 @@ Store system design, module contracts, failure handling, and architecture-specif
 - `member-reporting-slice.md` - twelfth product slice: member reporting of threads/replies and an administrator triage queue (status: Implemented)
 - `notifications-slice.md` - thirteenth product slice: a per-member notification inbox with best-effort delivery of moderation/report outcomes (status: Implemented)
 - `reply-notifications-slice.md` - fourteenth product slice: reply notifications delivered to a thread's author and prior participants (status: Implemented)
+- `verification-notifications-slice.md` - fifteenth product slice: verification-decision notifications delivered to the applicant on approve/reject (status: Proposed)
 - `nbu-ux-and-phone-first-identity.md` - NBU UX rules and phone-first identity implementation guidance
 
 ## Expected Future Additions
