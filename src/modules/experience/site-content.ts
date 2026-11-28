@@ -10,29 +10,6 @@ export type ArchiveCard = {
   accent: string;
 };
 
-export type CommunityThread = {
-  votes: string;
-  category: string;
-  author: string;
-  timestamp: string;
-  title: string;
-  excerpt: string;
-  replies: string;
-  saved: string;
-  hasGallery?: boolean;
-};
-
-export type CommentActivity = {
-  author: string;
-  summary: string;
-  timestamp: string;
-};
-
-export type ArchiveStat = {
-  label: string;
-  value: string;
-};
-
 export type VerificationStep = {
   title: string;
   description: string;
@@ -71,56 +48,6 @@ export const archiveCards: ArchiveCard[] = [
     episode: "EP 04",
     accent: "linear-gradient(135deg, #23192d 0%, #4d3a79 55%, #7bc4ff 100%)",
   },
-];
-
-export const communityThreads: CommunityThread[] = [
-  {
-    votes: "128",
-    category: "History of Science",
-    author: "Rafsan Ahmed",
-    timestamp: "2h ago",
-    title: "How should we interpret the Indus Valley urban knowledge system through the Lothal excavation record?",
-    excerpt:
-      "I want a comparative discussion that goes beyond trade routes and looks at engineering literacy, measurement systems, and archive reconstruction.",
-    replies: "46 replies",
-    saved: "1.2k saves",
-  },
-  {
-    votes: "94",
-    category: "AI and Society",
-    author: "Dr. Nadia Islam",
-    timestamp: "5h ago",
-    title: "Should AI literacy be taught alongside paleography and manuscript studies in future South Asian curricula?",
-    excerpt:
-      "Several university departments still separate computational literacy from historical method. I think that boundary is becoming counterproductive.",
-    replies: "31 replies",
-    saved: "842 saves",
-    hasGallery: true,
-  },
-];
-
-export const recentComments: CommentActivity[] = [
-  {
-    author: "Sadia Rahman",
-    summary: "Added a historiography note on knowledge transfer through port cities.",
-    timestamp: "12m ago",
-  },
-  {
-    author: "Dr. Arshad Khan",
-    summary: "Replied to the AI literacy thread with curriculum sequencing examples.",
-    timestamp: "34m ago",
-  },
-  {
-    author: "Mahin Tasnim",
-    summary: "Saved the quantum documentary and asked for a Bangla glossary companion.",
-    timestamp: "1h ago",
-  },
-];
-
-export const archivePulse: ArchiveStat[] = [
-  { label: "Scholars", value: "12.4k" },
-  { label: "Live Hubs", value: "2.1k" },
-  { label: "Weekly Replies", value: "48.9k" },
 ];
 
 export const verificationSteps: VerificationStep[] = [
