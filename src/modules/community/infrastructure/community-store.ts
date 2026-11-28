@@ -4,6 +4,7 @@ import {
   isThreadAfterCursor,
 } from "@/src/modules/community/domain/community-pagination";
 import type {
+  CategoryCount,
   CommunityRepository,
   CommunityStore,
   CommunityReply,
@@ -45,6 +46,15 @@ function compareRepliesByCreatedAsc(left: CommunityReply, right: CommunityReply)
   return left.id < right.id ? -1 : 1;
 }
 
+/** Orders categories by popularity, then by category ascending, matching the SQL `order by count desc, category asc`. */
+function compareCategoryCounts(left: CategoryCount, right: CategoryCount): number {
+  if (left.count !== right.count) {
+    return right.count - left.count;
+  }
+
+  return left.category < right.category ? -1 : left.category > right.category ? 1 : 0;
+}
+
 function createMemoryCommunityRepository(): CommunityRepository {
   return {
     async listThreads({ limit, cursor, includeHidden = false }) {
@@ -69,6 +79,34 @@ function createMemoryCommunityRepository(): CommunityRepository {
         .sort(compareThreadsByCreatedDesc)
         .slice(0, limit)
         .map((thread) => ({ ...thread, replyCount: countRepliesForThread(thread.id) }));
+    },
+    async listDistinctCategories() {
+      const counts = new Map<string, number>();
+
+      for (const thread of getCommunityStore().threads.values()) {
+        if (thread.moderationState !== "visible") {
+          continue;
+        }
+
+        counts.set(thread.category, (counts.get(thread.category) ?? 0) + 1);
+      }
+
+      return Array.from(counts, ([category, count]): CategoryCount => ({ category, count })).sort(
+        compareCategoryCounts,
+      );
+    },
+    async listThreadsByCategory(category, { limit, cursor }) {
+      const threads = Array.from(getCommunityStore().threads.values())
+        .filter((thread) => thread.moderationState === "visible" && thread.category === category)
+        .sort(compareThreadsByCreatedDesc);
+      const remaining = cursor ? threads.filter((thread) => isThreadAfterCursor(thread, cursor)) : threads;
+      const page = remaining.slice(0, limit);
+      const last = page[page.length - 1];
+
+      return {
+        threads: page.map((thread) => ({ ...thread, replyCount: countRepliesForThread(thread.id) })),
+        nextCursor: remaining.length > limit && last ? getThreadCursor(last) : undefined,
+      };
     },
     async createThread(thread) {
       getCommunityStore().threads.set(thread.id, thread);

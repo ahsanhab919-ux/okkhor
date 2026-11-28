@@ -15,6 +15,7 @@ import {
   moderateThreadSchema,
 } from "@/src/modules/community/domain/community-schemas";
 import type {
+  CategoryCount,
   CommunityActor,
   CommunityReply,
   CommunityThread,
@@ -91,6 +92,38 @@ export async function listThreadsByAuthor(
   input: ListThreadsByAuthorInput = {},
 ): Promise<CommunityThreadSummary[]> {
   return getCommunityRepository().listThreadsByAuthor(authorId, { limit: normalizeLimit(input.limit) });
+}
+
+/**
+ * Every distinct category across visible threads with its visible-thread count, ordered by count
+ * then category — the members-only browse index read. Called by the composition root.
+ */
+export async function listDistinctCategories(): Promise<CategoryCount[]> {
+  return getCommunityRepository().listDistinctCategories();
+}
+
+export type ListThreadsByCategoryInput = {
+  limit?: number;
+  cursor?: string;
+};
+
+/**
+ * The visible threads in `category` exactly, newest first, keyset-paginated — the
+ * members-only threads-by-category read. Called by the composition root.
+ */
+export async function listThreadsByCategory(
+  category: string,
+  input: ListThreadsByCategoryInput = {},
+): Promise<ThreadPage> {
+  const result = await getCommunityRepository().listThreadsByCategory(category, {
+    limit: normalizeLimit(input.limit),
+    cursor: input.cursor ? decodeThreadCursor(input.cursor) : undefined,
+  });
+
+  return {
+    threads: result.threads,
+    nextCursor: result.nextCursor ? encodeThreadCursor(result.nextCursor) : undefined,
+  };
 }
 
 export async function createThread(actor: CommunityActor, input: CreateThreadInput): Promise<CommunityThread> {

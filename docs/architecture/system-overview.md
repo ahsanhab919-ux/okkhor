@@ -27,6 +27,8 @@ At the current stage the deployed product is intentionally narrow:
 - a per-member "My Library" (`/library`) over saved research items
 - member profile pages — the owner's `/profile` and a public footprint at `/u/[id]`
 - an administrator moderation console (`/admin/community`) over the discussion surface
+- browse surfaces — a public topics index (`/topics`) with research-by-tag (`/tags/[tag]`)
+  and members-only threads-by-category (`/categories/[category]`)
 - JSON APIs for identity and content, and a health probe
 
 Deeper domains named in `ADR-001` (Video Processing, Video Delivery, Search,
@@ -108,8 +110,8 @@ The driver-selection pattern is shared across both boundaries (see
 ## 6. Request Lifecycle
 
 1. **Edge middleware** (`middleware.ts`) runs for the protected matchers
-   (`/community/:path*`, `/scholar-verify/:path*`, `/admin/:path*`, `/library/:path*`,
-   `/profile/:path*`). It
+   (`/community/:path*`, `/categories/:path*`, `/scholar-verify/:path*`, `/admin/:path*`,
+   `/library/:path*`, `/profile/:path*`). It
    verifies the access-token cookie at the edge and redirects to `/auth?next=…` when the token
    is missing or invalid.
 2. **Route handler** (`app/api/**/route.ts`) or **server component** (`app/**/page.tsx`)

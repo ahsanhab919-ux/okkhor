@@ -22,7 +22,7 @@ vi.mock("@/src/modules/identity/domain/auth-jwt", async () => {
   };
 });
 
-import { middleware } from "@/middleware";
+import { middleware, config } from "@/middleware";
 
 describe("auth middleware", () => {
   beforeEach(() => {
@@ -43,5 +43,16 @@ describe("auth middleware", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("guards the members-only category browse route at the edge", async () => {
+    expect(config.matcher).toContain("/categories/:path*");
+
+    const response = await middleware(new NextRequest("http://localhost/categories/General"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain(
+      `next=${encodeURIComponent("/categories/General")}`,
+    );
   });
 });

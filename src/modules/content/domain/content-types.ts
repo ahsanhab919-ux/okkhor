@@ -77,6 +77,16 @@ export type ListItemsByAuthorOptions = {
   limit: number;
 };
 
+/** A distinct tag with how many published items carry it (`topic-browse-slice.md` §5). */
+export type TagCount = {
+  tag: string;
+  count: number;
+};
+
+export type ListPublishedItemsByTagOptions = {
+  limit: number;
+};
+
 export type ContentRepository = {
   listPublishedItems(options: ListPublishedItemsOptions): Promise<ListPublishedItemsResult>;
   /** All items regardless of status, newest-edited first. The authoring view. */
@@ -92,6 +102,17 @@ export type ContentRepository = {
    * `limit`. Used by the composition root to render a member profile.
    */
   listPublishedItemsByAuthor(authorId: string, options: ListItemsByAuthorOptions): Promise<ResearchItem[]>;
+  /**
+   * Every distinct tag across published items, each with how many published items carry it;
+   * `count` descending, then `tag` ascending. The topic-browse index reads this
+   * (`topic-browse-slice.md` §5).
+   */
+  listDistinctPublishedTags(): Promise<TagCount[]>;
+  /**
+   * The published items carrying `tag` exactly, `publishedAt` descending then `id` descending,
+   * truncated to `limit`. Used by the topic-browse tag page.
+   */
+  listPublishedItemsByTag(tag: string, options: ListPublishedItemsByTagOptions): Promise<ResearchItem[]>;
   /** Any item regardless of status. The authoring path. */
   getItemById(id: string): Promise<ResearchItem | undefined>;
   createItem(item: ResearchItem): Promise<void>;

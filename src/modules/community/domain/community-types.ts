@@ -107,6 +107,12 @@ export type ListThreadsResult = {
   nextCursor?: CommunityCursor;
 };
 
+/** A distinct category with how many visible threads sit in it (`topic-browse-slice.md` §5). */
+export type CategoryCount = {
+  category: string;
+  count: number;
+};
+
 export type CommunityRepository = {
   listThreads(options: ListThreadsOptions): Promise<ListThreadsResult>;
   /**
@@ -115,6 +121,17 @@ export type CommunityRepository = {
    * member profile is a member-facing surface.
    */
   listThreadsByAuthor(authorId: string, options: ListThreadsOptions): Promise<CommunityThreadSummary[]>;
+  /**
+   * Every distinct `category` across visible threads, each with how many visible threads sit in
+   * it; `count` descending, then `category` ascending. Always visible-only, so a hidden thread is
+   * absent from the counts (`topic-browse-slice.md` §5).
+   */
+  listDistinctCategories(): Promise<CategoryCount[]>;
+  /**
+   * The visible threads in `category` exactly, as summaries, `createdAt` descending then `id`
+   * descending, keyset-paginated like `listThreads`. Always visible-only.
+   */
+  listThreadsByCategory(category: string, options: ListThreadsOptions): Promise<ListThreadsResult>;
   getThreadById(id: string): Promise<CommunityThread | undefined>;
   createThread(thread: CommunityThread): Promise<void>;
   /** Replies for a thread, oldest first. Hidden replies are omitted unless asked for. */

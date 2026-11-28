@@ -10,6 +10,7 @@ import type {
   ContentCursor,
   CreateItemInput,
   ResearchItem,
+  TagCount,
   UpdateItemInput,
 } from "@/src/modules/content/domain/content-types";
 import { getContentRepository } from "@/src/modules/content/infrastructure/content-repository";
@@ -139,6 +140,29 @@ export async function listPublishedItemsByAuthor(
   input: ListItemsByAuthorInput = {},
 ): Promise<ResearchItem[]> {
   return getContentRepository().listPublishedItemsByAuthor(authorId, { limit: normalizeLimit(input.limit) });
+}
+
+/**
+ * Every distinct published tag with its published-item count, ordered by count then tag — the
+ * public browse index read. Called by the composition root.
+ */
+export async function listDistinctPublishedTags(): Promise<TagCount[]> {
+  return getContentRepository().listDistinctPublishedTags();
+}
+
+export type ListPublishedItemsByTagInput = {
+  limit?: number;
+};
+
+/**
+ * The published items carrying `tag` exactly, newest-published first, capped — the public
+ * research-by-tag read. Called by the composition root.
+ */
+export async function listPublishedItemsByTag(
+  tag: string,
+  input: ListPublishedItemsByTagInput = {},
+): Promise<ResearchItem[]> {
+  return getContentRepository().listPublishedItemsByTag(tag, { limit: normalizeLimit(input.limit) });
 }
 
 /** The authoring list: every item regardless of status, newest-edited first. */
