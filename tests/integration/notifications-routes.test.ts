@@ -1,0 +1,354 @@
+import { NextRequest } from "next/server";
+import { vi } from "vitest";
+
+import { POST as resolveReportRoute } from "@/app/api/community/moderation/reports/[id]/route";
+import { POST as moderateReplyRoute } from "@/app/api/community/moderation/replies/[id]/route";
+import { POST as moderateThreadRoute } from "@/app/api/community/moderation/threads/[id]/route";
+import { POST as reportsRoute } from "@/app/api/community/reports/route";
+import { POST as createReplyRoute } from "@/app/api/community/threads/[id]/replies/route";
+import { POST as createThreadRoute } from "@/app/api/community/threads/route";
+import { POST as markReadRoute } from "@/app/api/notifications/[id]/read/route";
+import { GET as listNotificationsRoute } from "@/app/api/notifications/route";
+import { POST as markAllReadRoute } from "@/app/api/notifications/read-all/route";
+import { resetCommunityStoreForTesting } from "@/src/modules/community/infrastructure/community-store";
+import { registerUser } from "@/src/modules/identity/application/auth-service";
+import { ACCESS_TOKEN_COOKIE } from "@/src/modules/identity/domain/auth-config";
+import type { UserRole } from "@/src/modules/identity/domain/auth-types";
+import { resetAuthStoreForTesting } from "@/src/modules/identity/infrastructure/auth-store";
+import type { Notification } from "@/src/modules/notifications/domain/notification-types";
+import { resetNotificationStoreForTesting } from "@/src/modules/notifications/infrastructure/notification-store";
+import {
+  getLastNotificationMessageForTesting,
+  getLogNotificationChannel,
+  resetLogNotificationChannelForTesting,
+} from "@/src/modules/platform/infrastructure/log-notification-channel";
+
+const THREADS_URL = "http://localhost/api/community/threads";
+const REPORTS_URL = "http://localhost/api/community/reports";
+const NOTIFICATIONS_URL = "http://localhost/api/notifications";
+
+type ErrorPayload = {
+  error: { code: string };
+};
+
+type NotificationListPayload = {
+  notifications: Notification[];
+};
+
+function jsonRequest(method: string, body?: unknown, token?: string, url: string = NOTIFICATIONS_URL) {
+  const request = new NextRequest(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+  if (token) {
+    request.cookies.set(ACCESS_TOKEN_COOKIE, token);
+  }
+
+  return request;
+}
+
+function idContext(id: string) {
+  return { params: Promise.resolve({ id }) };
+}
+
+async function persona(phoneNumber: string, roles: UserRole[] = ["learner"]) {
+  const result = await registerUser({
+    phoneNumber,
+    displayName: "Community Member",
+    password: "Okkhor2026",
+    locale: "bn-BD",
+    roles,
+  });
+
+  return { token: result.tokens.accessToken, userId: result.user.id };
+}
+
+async function createThreadFor(token: string, title = "A thread") {
+  const response = await createThreadRoute(jsonRequest("POST", { title, body: "Body" }, token, THREADS_URL));
+
+  return ((await response.json()) as { thread: { id: string } }).thread.id;
+}
+
+async function createReplyFor(token: string, threadId: string) {
+  const response = await createReplyRoute(
+    jsonRequest("POST", { body: "a reply" }, token, THREADS_URL),
+    idContext(threadId),
+  );
+
+  return ((await response.json()) as { reply: { id: string } }).reply.id;
+}
+
+async function listInbox(token: string) {
+  const response = await listNotificationsRoute(jsonRequest("GET", undefined, token));
+  const payload = (await response.json()) as NotificationListPayload;
+
+  return { status: response.status, notifications: payload.notifications };
+}
+
+describe("notification routes", () => {
+  beforeEach(() => {
+    resetAuthStoreForTesting();
+    resetCommunityStoreForTesting();
+    resetNotificationStoreForTesting();
+    resetLogNotificationChannelForTesting();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects every unauthenticated notification request with 401", async () => {
+    const list = await listNotificationsRoute(jsonRequest("GET"));
+
+    expect(list.status).toBe(401);
+    expect(((await list.json()) as ErrorPayload).error.code).toBe("AUTH_UNAUTHORIZED");
+
+    const readOne = await markReadRoute(jsonRequest("POST"), idContext("n1"));
+
+    expect(readOne.status).toBe(401);
+    expect(((await readOne.json()) as ErrorPayload).error.code).toBe("AUTH_UNAUTHORIZED");
+
+    const readAll = await markAllReadRoute(jsonRequest("POST"));
+
+    expect(readAll.status).toBe(401);
+    expect(((await readAll.json()) as ErrorPayload).error.code).toBe("AUTH_UNAUTHORIZED");
+  });
+
+  it("notifies a thread author when their thread is hidden, delivers it, and lets them read it", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token, "Off-topic thread");
+
+    const hidden = await moderateThreadRoute(
+      jsonRequest("POST", { action: "hide", note: "off topic" }, admin.token),
+      idContext(threadId),
+    );
+
+    expect(hidden.status).toBe(200);
+
+    const inbox = await listInbox(member.token);
+
+    expect(inbox.status).toBe(200);
+    expect(inbox.notifications).toHaveLength(1);
+    expect(inbox.notifications[0]).toMatchObject({
+      recipientId: member.userId,
+      type: "content_hidden",
+      title: "Your thread was hidden",
+      href: "/community",
+      dedupeKey: `content_hidden:${threadId}`,
+    });
+    expect(inbox.notifications[0].readAt).toBeUndefined();
+
+    // The outbound `log` channel double recorded the same outcome.
+    const delivered = getLastNotificationMessageForTesting();
+
+    expect(delivered?.subject).toBe("Your thread was hidden");
+    expect(delivered?.destination.phoneNumber).toContain("1712345678");
+
+    const notificationId = inbox.notifications[0].id;
+
+    const read = await markReadRoute(
+      jsonRequest("POST", undefined, member.token, `${NOTIFICATIONS_URL}/${notificationId}/read`),
+      idContext(notificationId),
+    );
+    const readBody = (await read.json()) as { notification: Notification };
+
+    expect(read.status).toBe(200);
+    expect(readBody.notification.readAt).toBeTruthy();
+
+    const again = await markReadRoute(
+      jsonRequest("POST", undefined, member.token, `${NOTIFICATIONS_URL}/${notificationId}/read`),
+      idContext(notificationId),
+    );
+
+    expect(((await again.json()) as { notification: Notification }).notification.readAt).toBe(
+      readBody.notification.readAt,
+    );
+
+    const afterRead = await listInbox(member.token);
+
+    expect(afterRead.notifications[0].readAt).toBe(readBody.notification.readAt);
+  });
+
+  it("notifies a reply author when their reply is hidden", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token);
+    const replyId = await createReplyFor(member.token, threadId);
+
+    await moderateReplyRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(replyId));
+
+    const inbox = await listInbox(member.token);
+
+    expect(inbox.notifications).toHaveLength(1);
+    expect(inbox.notifications[0]).toMatchObject({
+      type: "content_hidden",
+      title: "Your reply was hidden",
+      href: `/community/${threadId}`,
+      dedupeKey: `content_hidden:${replyId}`,
+    });
+    expect(getLastNotificationMessageForTesting()?.subject).toBe("Your reply was hidden");
+  });
+
+  it("notifies the reporter when their report is resolved", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token, "Reported thread");
+
+    const created = await reportsRoute(
+      jsonRequest("POST", { targetType: "thread", targetId: threadId, reason: "spam" }, member.token, REPORTS_URL),
+    );
+    const reportId = ((await created.json()) as { report: { id: string } }).report.id;
+
+    await resolveReportRoute(
+      jsonRequest("POST", { action: "resolve", note: "hidden" }, admin.token),
+      idContext(reportId),
+    );
+
+    const inbox = await listInbox(member.token);
+
+    expect(inbox.notifications).toHaveLength(1);
+    expect(inbox.notifications[0]).toMatchObject({
+      type: "report_resolved",
+      title: "Your report was resolved",
+      href: "/community",
+      dedupeKey: `report_resolved:${reportId}`,
+    });
+  });
+
+  it("notifies the reporter when their report is dismissed", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token, "Fine thread");
+
+    const created = await reportsRoute(
+      jsonRequest("POST", { targetType: "thread", targetId: threadId, reason: "spam" }, member.token, REPORTS_URL),
+    );
+    const reportId = ((await created.json()) as { report: { id: string } }).report.id;
+
+    await resolveReportRoute(jsonRequest("POST", { action: "dismiss" }, admin.token), idContext(reportId));
+
+    const inbox = await listInbox(member.token);
+
+    expect(inbox.notifications).toHaveLength(1);
+    expect(inbox.notifications[0]).toMatchObject({
+      type: "report_dismissed",
+      title: "Your report was dismissed",
+      dedupeKey: `report_dismissed:${reportId}`,
+    });
+  });
+
+  it("creates no notification for a non-hiding thread action", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token);
+
+    await moderateThreadRoute(jsonRequest("POST", { action: "lock" }, admin.token), idContext(threadId));
+    await moderateThreadRoute(jsonRequest("POST", { action: "unlock" }, admin.token), idContext(threadId));
+
+    const inbox = await listInbox(member.token);
+
+    expect(inbox.notifications).toEqual([]);
+    expect(getLastNotificationMessageForTesting()).toBeUndefined();
+  });
+
+  it("does not re-notify when the same thread is hidden again", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token);
+
+    await moderateThreadRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(threadId));
+    await moderateThreadRoute(jsonRequest("POST", { action: "restore" }, admin.token), idContext(threadId));
+    await moderateThreadRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(threadId));
+
+    const inbox = await listInbox(member.token);
+
+    expect(inbox.notifications).toHaveLength(1);
+  });
+
+  it("suppresses the notification when the moderator is the author", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const threadId = await createThreadFor(admin.token, "Admin's own thread");
+
+    await moderateThreadRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(threadId));
+
+    const inbox = await listInbox(admin.token);
+
+    expect(inbox.notifications).toEqual([]);
+  });
+
+  it("marks all of a member's notifications read and reports the count", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token);
+    const replyId = await createReplyFor(member.token, threadId);
+
+    await moderateThreadRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(threadId));
+    await moderateReplyRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(replyId));
+
+    const first = await markAllReadRoute(jsonRequest("POST", undefined, member.token));
+
+    expect(first.status).toBe(200);
+    expect(((await first.json()) as { updated: number }).updated).toBe(2);
+
+    const second = await markAllReadRoute(jsonRequest("POST", undefined, member.token));
+
+    expect(((await second.json()) as { updated: number }).updated).toBe(0);
+
+    const inbox = await listInbox(member.token);
+
+    expect(inbox.notifications.every((notification) => notification.readAt)).toBe(true);
+  });
+
+  it("returns 404 when marking another member's notification or an unknown id read", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const other = await persona("01798765432");
+    const threadId = await createThreadFor(member.token);
+
+    await moderateThreadRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(threadId));
+
+    const notificationId = (await listInbox(member.token)).notifications[0].id;
+
+    const foreign = await markReadRoute(
+      jsonRequest("POST", undefined, other.token, `${NOTIFICATIONS_URL}/${notificationId}/read`),
+      idContext(notificationId),
+    );
+
+    expect(foreign.status).toBe(404);
+    expect(((await foreign.json()) as ErrorPayload).error.code).toBe("NOTIFICATION_NOT_FOUND");
+
+    const missing = await markReadRoute(
+      jsonRequest("POST", undefined, member.token, `${NOTIFICATIONS_URL}/missing/read`),
+      idContext("missing"),
+    );
+
+    expect(missing.status).toBe(404);
+    expect(((await missing.json()) as ErrorPayload).error.code).toBe("NOTIFICATION_NOT_FOUND");
+  });
+
+  it("keeps the moderation response when notification delivery fails", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const member = await persona("01712345678");
+    const threadId = await createThreadFor(member.token, "Resilient thread");
+
+    vi.spyOn(getLogNotificationChannel(), "send").mockRejectedValue(new Error("gateway down"));
+
+    const hidden = await moderateThreadRoute(
+      jsonRequest("POST", { action: "hide" }, admin.token),
+      idContext(threadId),
+    );
+
+    expect(hidden.status).toBe(200);
+    expect(((await hidden.json()) as { thread: { moderationState: string } }).thread.moderationState).toBe(
+      "hidden",
+    );
+
+    // The notification was persisted before delivery, so the inbox still records the outcome.
+    expect((await listInbox(member.token)).notifications).toHaveLength(1);
+    expect(console.error).toHaveBeenCalled();
+  });
+});

@@ -1,6 +1,6 @@
 # Notifications Slice
 
-- Status: `Proposed` (thirteenth product slice; decisions recorded in §13)
+- Status: `Implemented` (thirteenth product slice; decisions recorded in §13)
 - Related ADRs: `ADR-001`, `ADR-002`, `ADR-004`
 - Owner: `Engineering Lead`
 - Handbook: `ENGINEERING_HANDBOOK.md` §7.2 (Definition of Ready), §7.3 (Definition of Done)
@@ -16,7 +16,7 @@
 The password-reset-delivery slice built a reusable notification port in `platform` — a
 `NotificationChannel` with `log`, `sms`, and `email` channels and a driver selector — precisely so
 later features could deliver messages without a new abstraction. It then shipped with **only password
-reset consuming it**, and recorded the gap as `§13` decision 8: "a general-purpose notification
+reset consuming it**, and recorded the gap in `§13` (decision 1's scope note): "a general-purpose notification
 service for other domains (verification decisions, moderation notices, reply notifications) — the port
 is built to be reusable, but only password reset consumes it in this slice."
 
@@ -509,7 +509,7 @@ delivery step), [server-vs-client-components.md](server-vs-client-components.md)
 `notification-actions.tsx` island), [configuration.md](../configuration.md) and
 [.env.example](../../.env.example) (the one new storage variable), and the [index](README.md) entry are
 updated; the middleware matcher gains `/notifications/:path*`; the member-reporting slice's deferred
-"notifications" item and the password-reset slice's §13 decision 8 ("only password reset consumes the
+"notifications" item and the password-reset slice's §13 decision 1 ("only password reset consumes the
 port") are annotated as **partly resolved** by this slice (delivery now also serves moderation and
 reporting; reply and verification notifications remain deferred); the migration is added with a working
 `down`; and the slice status plus the index entry are flipped to `Implemented`.

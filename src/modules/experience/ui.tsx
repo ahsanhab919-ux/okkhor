@@ -19,7 +19,8 @@ type IconProps = SVGProps<SVGSVGElement> & {
     | "arrow-right"
     | "shield"
     | "check"
-    | "plus";
+    | "plus"
+    | "bell";
 };
 
 export function Icon({ name, ...props }: IconProps) {
@@ -119,6 +120,13 @@ export function Icon({ name, ...props }: IconProps) {
       return (
         <svg aria-hidden="true" {...shared} {...props}>
           <path d="M12 5v14M5 12h14" />
+        </svg>
+      );
+    case "bell":
+      return (
+        <svg aria-hidden="true" {...shared} {...props}>
+          <path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2.5H4.5L6 16Z" />
+          <path d="M10 20a2 2 0 0 0 4 0" />
         </svg>
       );
   }
