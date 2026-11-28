@@ -93,7 +93,45 @@ describe("community pages", () => {
 
     expect(screen.getByRole("link", { name: /Start a Thread/i })).toHaveAttribute("href", "/community/new");
     expect(screen.getByRole("link", { name: /Indus Valley thread/i })).toHaveAttribute("href", "/community/t1");
-    expect(screen.getByText("History of Science")).toBeInTheDocument();
+    expect(screen.getByText("History of Science", { selector: ".discussion-card__badge" })).toBeInTheDocument();
+  });
+
+  it("builds the hub rail from live categories and the contributor prompt", async () => {
+    await seedThread("t1");
+
+    render(await CommunityPage());
+
+    expect(screen.getByRole("link", { name: /History of Science/ })).toHaveAttribute(
+      "href",
+      "/categories/History%20of%20Science",
+    );
+    expect(screen.getByRole("link", { name: /Apply Now/i })).toHaveAttribute("href", "/scholar-verify");
+  });
+
+  it("labels a discussion with its author when the member is known", async () => {
+    const result = await registerUser({
+      phoneNumber: "01712345678",
+      displayName: "Ahsan Habib",
+      password: "Okkhor2026",
+      locale: "bn-BD",
+      roles: ["learner"],
+    });
+
+    await getMemoryCommunityRepository().createThread({
+      id: "t1",
+      authorId: result.user.id,
+      title: "Indus Valley thread",
+      body: "A discussion about the Lothal excavation record.",
+      category: "History of Science",
+      createdAt: "2026-03-01T00:00:00.000Z",
+      updatedAt: "2026-03-01T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
+    });
+
+    render(await CommunityPage());
+
+    expect(screen.getByText(/Posted by/i)).toHaveTextContent("Ahsan Habib");
   });
 
   it("renders a thread with its replies and a reply form", async () => {
