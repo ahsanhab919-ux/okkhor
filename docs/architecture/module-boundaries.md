@@ -195,12 +195,34 @@ memory repositories (`getMemoryContentRepository`, `getMemoryCommunityRepository
 the read model; the PostgreSQL repository queries `content_items` and `community_threads`
 directly. It is strictly read-only and owns no writes.
 
+### 5.8 `summarization` — implemented, fully layered
+
+```
+src/modules/summarization/
+  domain/         summarization-types.ts    (SummarizeInput, SummaryResult, SummaryProvider)
+                  summarization-errors.ts   (AI_* codes)
+                  summarization-schemas.ts  (input + provider-output schemas)
+  application/    summarization-service.ts  (validate -> provider -> validate output)
+  infrastructure/ summary-provider.ts       (AI_SUMMARY_DRIVER selector)
+                  fake-summary-provider.ts
+                  gemini-summary-provider.ts
+  api/            summarization-http.ts     (response + error shaping)
+```
+
+`summarization` is a leaf module: it produces an English + Bangla summary from a plain
+`{ title, abstract, sourceLanguage }` input via its configured provider. It imports **no other
+module** — not `content` (it is handed plain data) — and reads the provider credential only in
+`infrastructure`. The `content` module does not import `summarization` either; the two are joined
+only in the composition root (`app/api/content/items/**`), where a small helper
+(`summarize-on-publish.ts`) owns the generate → inject → write ordering. See
+[ai-summarization-slice.md](ai-summarization-slice.md).
+
 ## 6. Cross-Module Rules
 
 Current dependency edges (verified in code):
 
 - `app/**` (routes, pages) depends on `identity`, `platform`, `experience`, `content`,
-  `verification`, `community`, and `search`.
+  `verification`, `community`, `search`, and `summarization`.
 - `identity` depends on `platform` for the ephemeral store (`auth-rate-limit.ts` imports
   `getEphemeralStore`).
 - `content` depends on `platform` for the shared Postgres pool config

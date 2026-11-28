@@ -34,7 +34,8 @@ export type ContentAuthor = {
 export type CreateItemInput = {
   title: string;
   abstract: string;
-  summaryBn: string;
+  /** Optional to save; a blank summary is filled by the AI on publish. */
+  summaryBn?: string;
   sourceLanguage?: string;
   tags?: string[];
   status?: ResearchItemStatus;

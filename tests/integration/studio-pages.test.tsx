@@ -139,4 +139,36 @@ describe("studio pages", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Title is required.");
   });
+
+  it("no longer requires a Bangla summary in the editor", () => {
+    render(<ItemEditorForm />);
+
+    expect(screen.getByLabelText(/Bangla summary/i)).not.toBeRequired();
+  });
+
+  it("publishes without a Bangla summary and shows the transient English preview", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            item: { id: "a", status: "published", summaryBn: "এআই সারসংক্ষেপ" },
+            summary: { summaryEn: "AI English preview text", summaryBn: "এআই সারসংক্ষেপ" },
+          }),
+          { status: 201 },
+        ),
+      ),
+    );
+
+    render(<ItemEditorForm />);
+
+    fireEvent.change(screen.getByLabelText(/^Title$/i), { target: { value: "New title" } });
+    fireEvent.change(screen.getByLabelText(/^Abstract$/i), { target: { value: "Abstract body" } });
+    fireEvent.change(screen.getByLabelText(/^Status$/i), { target: { value: "published" } });
+    fireEvent.click(screen.getByRole("button", { name: /Create item/i }));
+
+    expect(await screen.findByText(/AI English summary \(preview, not saved\)/i)).toBeInTheDocument();
+    expect(screen.getByText("AI English preview text")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Continue to studio/i })).toBeInTheDocument();
+  });
 });

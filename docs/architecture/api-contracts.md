@@ -214,14 +214,16 @@ role (`scholar` or `admin`) — see [content-authoring-slice.md](content-authori
   }
   ```
 
-  `title`, `abstract`, and `summaryBn` are required and non-empty; `tags` defaults to `[]`;
-  `sourceLanguage` defaults to `en`; `status` defaults to `draft` (`draft | published`). The
-  creating user is stamped as `authorId` and `updatedBy`.
+  `title` and `abstract` are required and non-empty; `summaryBn` is optional to save (a blank
+  summary is generated on publish — see §4.24); `tags` defaults to `[]`; `sourceLanguage`
+  defaults to `en`; `status` defaults to `draft` (`draft | published`). The creating user is
+  stamped as `authorId` and `updatedBy`.
 
-- **Success** `201`: `{ "item": { "…ResearchItem…" } }`. Creating directly as `published`
-  stamps `publishedAt`.
+- **Success** `201`: `{ "item": { "…ResearchItem…" } }`. When the new item is `published`, the
+  response additionally carries a transient `summary` block (§4.24) and `publishedAt` is stamped.
 - **Errors:** `AUTH_UNAUTHORIZED` (401 — no/invalid session), `CONTENT_FORBIDDEN` (403 —
   authenticated non-author such as `learner`), `CONTENT_VALIDATION_FAILED` (400),
+  `AI_SUMMARY_FAILED` (502) / `AI_UNAVAILABLE` (503) when publishing and summarization fails,
   `CONTENT_UNKNOWN` (500).
 
 ### 4.12 `PATCH /api/content/items/[id]`
@@ -237,11 +239,13 @@ authenticated session with an author role (`scholar` or `admin`).
   ```
 
 - **Success** `200`: `{ "item": { "…ResearchItem…" } }`. The transition to `published` stamps
-  `publishedAt` once (a later edit keeps the original value). Every write stamps `updatedBy`
-  and bumps `updatedAt`.
+  `publishedAt` once (a later edit keeps the original value) and adds the transient `summary`
+  block (§4.24). Every write stamps `updatedBy` and bumps `updatedAt`.
 - **Errors:** `AUTH_UNAUTHORIZED` (401), `CONTENT_FORBIDDEN` (403), `CONTENT_VALIDATION_FAILED`
   (400), `CONTENT_ITEM_NOT_FOUND` (404 — unknown id), `CONTENT_CONFLICT` (409 — `updatedAt` did
-  not match the stored version; the newer version is not overwritten), `CONTENT_UNKNOWN` (500).
+  not match the stored version; the newer version is not overwritten), `AI_SUMMARY_FAILED` (502) /
+  `AI_UNAVAILABLE` (503) when the edit publishes the item and summarization fails,
+  `CONTENT_UNKNOWN` (500).
 
 The read endpoints (§4.9, §4.10) are unchanged and stay public.
 
@@ -418,6 +422,41 @@ an authenticated session (any role). See [discovery-slice.md](discovery-slice.md
   before the `limit` truncation.
 - **Errors:** `AUTH_UNAUTHORIZED` (401), `SEARCH_VALIDATION_FAILED` (400), `SEARCH_UNKNOWN` (500).
 
+### 4.24 AI summarization on publish
+
+Summarization has **no dedicated endpoint**. It runs inside the authoring writes
+(§4.11, §4.12) when the write publishes the item, so it is reachable only through the
+scholar/admin-gated authoring path. See
+[ai-summarization-slice.md](ai-summarization-slice.md).
+
+- **Trigger:** a publish transition — `POST` creating a `published` item, or `PATCH` moving a
+  `draft` (or non-published item) to `published`. An edit to an already-published item does **not**
+  regenerate.
+- **Behaviour:** the item's `title` and `abstract` are sent to the configured summarization
+  provider ([configuration.md](../configuration.md) → `AI_SUMMARY_DRIVER`), which returns an
+  English summary and a Bangla (`bn-BD`) summary. The **Bangla** summary is persisted into the
+  item's `summaryBn` **only when the author left it blank** — the author's own text always wins.
+  The English summary is **never** persisted.
+- **Success:** the publish response adds an optional transient block:
+
+  ```json
+  {
+    "item": { "…ResearchItem with a non-empty summaryBn…" },
+    "summary": { "summaryEn": "…", "summaryBn": "…" }
+  }
+  ```
+
+  `summary` is present whenever the write published the item. A client may ignore it; only the
+  English preview is lost. The `summaryBn` inside `summary` is the provider's output and may
+  differ from the persisted `item.summaryBn` when the author's text was kept.
+- **Failure:** if the provider call fails or returns an unusable response, the write is not
+  attempted and the item stays as it was (a draft). The response is `502`/`503` with the codes
+  below. A published item therefore always carries a non-empty `summaryBn`.
+- **Schema relaxation:** `summaryBn` is optional to **save** (a draft stores `""`) and required to
+  **publish**; a `published` item with an empty `summaryBn` is rejected with
+  `CONTENT_VALIDATION_FAILED` (400).
+- **Errors:** `AI_SUMMARY_FAILED` (502), `AI_UNAVAILABLE` (503), `AI_UNKNOWN` (500).
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, and `password-reset/request`. The client identifier is the
@@ -493,6 +532,15 @@ The search endpoint uses a parallel set of codes, whose executable source of tru
 | --- | --- | --- |
 | `SEARCH_VALIDATION_FAILED` | 400 | Query parameters failed schema validation (empty/over-long `q`, unknown `kind`/`sort`) |
 | `SEARCH_UNKNOWN` | 500 | Unhandled failure (fallback) |
+
+The AI summarization path (§4.24) uses a parallel set of codes, whose executable source of truth
+is `src/modules/summarization/domain/summarization-errors.ts`:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `AI_SUMMARY_FAILED` | 502 | The provider call failed or returned an empty/invalid summary |
+| `AI_UNAVAILABLE` | 503 | Summarization is not configured (no provider credentials) |
+| `AI_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
 ## 7. Route Protection (non-API)
 
