@@ -99,6 +99,8 @@ describe("listThreadsByAuthor", () => {
       category: "General",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
     });
     await repository.createThread({
       id: "newer",
@@ -108,6 +110,8 @@ describe("listThreadsByAuthor", () => {
       category: "General",
       createdAt: "2026-02-01T00:00:00.000Z",
       updatedAt: "2026-02-01T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
     });
     await repository.createThread({
       id: "other",
@@ -117,6 +121,8 @@ describe("listThreadsByAuthor", () => {
       category: "General",
       createdAt: "2026-03-01T00:00:00.000Z",
       updatedAt: "2026-03-01T00:00:00.000Z",
+      moderationState: "visible",
+      locked: false,
     });
     await repository.createReply({
       id: "r1",
@@ -124,6 +130,7 @@ describe("listThreadsByAuthor", () => {
       authorId: "u-2",
       body: "hi",
       createdAt: "2026-02-02T00:00:00.000Z",
+      moderationState: "visible",
     });
 
     const threads = await listThreadsByAuthor("u-1");

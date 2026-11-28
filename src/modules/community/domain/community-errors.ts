@@ -1,7 +1,10 @@
 export type CommunityErrorCode =
   | "COMMUNITY_VALIDATION_FAILED"
   | "COMMUNITY_INVALID_CURSOR"
-  | "COMMUNITY_THREAD_NOT_FOUND";
+  | "COMMUNITY_THREAD_NOT_FOUND"
+  | "COMMUNITY_REPLY_NOT_FOUND"
+  | "COMMUNITY_THREAD_LOCKED"
+  | "COMMUNITY_FORBIDDEN";
 
 export class CommunityError extends Error {
   constructor(

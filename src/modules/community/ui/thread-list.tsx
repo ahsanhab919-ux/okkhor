@@ -9,16 +9,21 @@ function excerpt(body: string) {
 }
 
 /**
- * The shared discussion-card list: used by the community hub and by member profiles, so both
- * render the same card (`member-profile-slice.md` §8). The empty message is callable so each
- * surface can phrase it for its own context.
+ * The shared discussion-card list: used by the community hub, by member profiles, and by the
+ * moderation queue, so every surface renders the same card (`member-profile-slice.md` §8,
+ * `community-moderation-slice.md` §8). The empty message is callable so each surface can phrase it
+ * for its own context. The state pills only ever show on a moderator surface: member reads omit
+ * hidden threads.
  */
 export function ThreadList({
   threads,
   emptyMessage = "No discussions yet. Start the first thread.",
+  hrefBase = "/community",
 }: {
   threads: CommunityThreadSummary[];
   emptyMessage?: string;
+  /** The moderation queue links each card to its moderator page instead of the member thread. */
+  hrefBase?: string;
 }) {
   if (threads.length === 0) {
     return <p>{emptyMessage}</p>;
@@ -31,10 +36,12 @@ export function ThreadList({
           <div className="discussion-card__body">
             <div className="discussion-card__meta">
               <span className="pill">{thread.category}</span>
+              {thread.moderationState === "hidden" ? <span className="pill">Hidden</span> : null}
+              {thread.locked ? <span className="pill">Locked</span> : null}
               <span>{thread.createdAt.slice(0, 10)}</span>
             </div>
             <h3>
-              <Link className="inline-link" href={`/community/${thread.id}`}>
+              <Link className="inline-link" href={`${hrefBase}/${thread.id}`}>
                 {thread.title}
               </Link>
             </h3>

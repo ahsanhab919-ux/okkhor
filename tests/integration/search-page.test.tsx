@@ -62,6 +62,8 @@ async function seed() {
     category: "Policy",
     createdAt: "2026-02-01T00:00:00.000Z",
     updatedAt: "2026-02-01T00:00:00.000Z",
+    moderationState: "visible",
+    locked: false,
   });
 
   return author;

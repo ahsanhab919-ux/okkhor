@@ -25,7 +25,7 @@ function countRepliesForThread(threadId: string) {
   let count = 0;
 
   for (const reply of getCommunityStore().replies.values()) {
-    if (reply.threadId === threadId) {
+    if (reply.threadId === threadId && reply.moderationState === "visible") {
       count += 1;
     }
   }
@@ -47,8 +47,10 @@ function compareRepliesByCreatedAsc(left: CommunityReply, right: CommunityReply)
 
 function createMemoryCommunityRepository(): CommunityRepository {
   return {
-    async listThreads({ limit, cursor }) {
-      const threads = Array.from(getCommunityStore().threads.values()).sort(compareThreadsByCreatedDesc);
+    async listThreads({ limit, cursor, includeHidden = false }) {
+      const threads = Array.from(getCommunityStore().threads.values())
+        .filter((thread) => includeHidden || thread.moderationState === "visible")
+        .sort(compareThreadsByCreatedDesc);
       const remaining = cursor ? threads.filter((thread) => isThreadAfterCursor(thread, cursor)) : threads;
       const page = remaining.slice(0, limit);
       const last = page[page.length - 1];
@@ -63,7 +65,7 @@ function createMemoryCommunityRepository(): CommunityRepository {
     },
     async listThreadsByAuthor(authorId, { limit }) {
       return Array.from(getCommunityStore().threads.values())
-        .filter((thread) => thread.authorId === authorId)
+        .filter((thread) => thread.authorId === authorId && thread.moderationState === "visible")
         .sort(compareThreadsByCreatedDesc)
         .slice(0, limit)
         .map((thread) => ({ ...thread, replyCount: countRepliesForThread(thread.id) }));
@@ -71,12 +73,21 @@ function createMemoryCommunityRepository(): CommunityRepository {
     async createThread(thread) {
       getCommunityStore().threads.set(thread.id, thread);
     },
-    async listRepliesByThreadId(threadId) {
+    async listRepliesByThreadId(threadId, { includeHidden = false } = {}) {
       return Array.from(getCommunityStore().replies.values())
-        .filter((reply) => reply.threadId === threadId)
+        .filter((reply) => reply.threadId === threadId && (includeHidden || reply.moderationState === "visible"))
         .sort(compareRepliesByCreatedAsc);
     },
     async createReply(reply) {
+      getCommunityStore().replies.set(reply.id, reply);
+    },
+    async getReplyById(id) {
+      return getCommunityStore().replies.get(id);
+    },
+    async updateThreadModeration(thread) {
+      getCommunityStore().threads.set(thread.id, thread);
+    },
+    async updateReplyModeration(reply) {
       getCommunityStore().replies.set(reply.id, reply);
     },
   };

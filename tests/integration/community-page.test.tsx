@@ -13,6 +13,10 @@ import { ThreadForm } from "@/src/modules/community/ui/thread-form";
 import { registerUser } from "@/src/modules/identity/application/auth-service";
 import { resetAuthStoreForTesting } from "@/src/modules/identity/infrastructure/auth-store";
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
   usePathname: () => "/community",
@@ -30,6 +34,8 @@ async function seedThread(id: string, title = "Indus Valley thread") {
     category: "History of Science",
     createdAt: "2026-03-01T00:00:00.000Z",
     updatedAt: "2026-03-01T00:00:00.000Z",
+    moderationState: "visible",
+    locked: false,
   });
 }
 
@@ -98,6 +104,7 @@ describe("community pages", () => {
       authorId: "u-author",
       body: "First reply body",
       createdAt: "2026-03-02T00:00:00.000Z",
+      moderationState: "visible",
     });
 
     render(await CommunityThreadPage({ params: Promise.resolve({ id: "t1" }) }));

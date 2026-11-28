@@ -66,6 +66,8 @@ async function seedThread(input: SeedThread) {
     category: input.category ?? "General",
     createdAt,
     updatedAt: createdAt,
+    moderationState: "visible",
+    locked: false,
   });
 }
 
