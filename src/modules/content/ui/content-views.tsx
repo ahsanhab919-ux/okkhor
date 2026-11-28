@@ -1,8 +1,16 @@
 import Link from "next/link";
 import React from "react";
+import type { ReactNode } from "react";
 
 import type { ResearchItem } from "@/src/modules/content/domain/content-types";
 import { Icon } from "@/src/modules/experience/ui";
+
+/** The author label the detail page resolves from identity before handing it to the view. */
+export type ContentDetailAuthor = {
+  id: string;
+  displayName: string;
+  roleLabel: string;
+};
 
 function ItemTags({ tags }: { tags: string[] }) {
   if (tags.length === 0) {
@@ -145,33 +153,149 @@ export function ContentExploreGrid({
   );
 }
 
-export function ContentItemDetail({ item }: { item: ResearchItem }) {
-  const publishedLabel = item.publishedAt ? ` · Published ${item.publishedAt.slice(0, 10)}` : "";
+function initials(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("") || "?"
+  );
+}
+
+/** A rough reading time derived from the copy we actually store — abstract plus Bangla summary. */
+function estimateReadMinutes(text: string) {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+
+  return Math.max(1, Math.round(words / 200));
+}
+
+/**
+ * The item detail view, modelled on the Stitch screen "Research Episode Detail": a cover hero with
+ * the title and author, an overlapping action bar, a two-column body (Bangla overview beside the
+ * expert card) and a related-items rail. The Stitch design's episode number, credentials and
+ * download/share controls have no backing data here, so they are omitted rather than faked.
+ */
+export function ContentItemDetail({
+  item,
+  author,
+  relatedItems = [],
+  saveAction,
+}: {
+  item: ResearchItem;
+  author?: ContentDetailAuthor;
+  relatedItems?: ResearchItem[];
+  /** The client-side save island, injected by the page. */
+  saveAction?: ReactNode;
+}) {
+  const category = item.tags[0] ?? "Research";
+  const publishedLabel = item.publishedAt ? item.publishedAt.slice(0, 10) : "Unpublished";
+  const readMinutes = estimateReadMinutes(`${item.abstract} ${item.summaryBn}`);
 
   return (
-    <article>
-      <ItemTags tags={item.tags} />
-      <h1>{item.title}</h1>
-      <p>
-        Source language: {item.sourceLanguage.toUpperCase()}
-        {publishedLabel}
-      </p>
+    <article className="detail-article">
+      <header className="detail-hero" style={{ backgroundImage: exploreCover(item.id) }}>
+        <div aria-hidden="true" className="detail-hero__scrim" />
 
-      <section>
-        <h2>Abstract</h2>
-        <p lang={item.sourceLanguage}>{item.abstract}</p>
+        <div className="detail-hero__inner">
+          <div className="detail-hero__pills">
+            <span className="detail-pill">{category}</span>
+            <span className="detail-hero__read">
+              <Icon className="icon-sm" name="book" />
+              {readMinutes} min read
+            </span>
+          </div>
+
+          <h1 className="detail-hero__title">{item.title}</h1>
+
+          <div className="detail-hero__meta">
+            <span>{item.sourceLanguage.toUpperCase()}</span>
+            <span aria-hidden="true">&middot;</span>
+            <span>Published {publishedLabel}</span>
+          </div>
+
+          {author ? (
+            <Link className="detail-hero__author" href={`/u/${author.id}`}>
+              <span aria-hidden="true" className="detail-avatar">
+                {initials(author.displayName)}
+              </span>
+              <span className="detail-hero__author-copy">
+                <span className="detail-hero__author-name">{author.displayName}</span>
+                <span className="detail-hero__author-role">{author.roleLabel}</span>
+              </span>
+            </Link>
+          ) : null}
+        </div>
+      </header>
+
+      <section className="detail-actions">
+        <div className="detail-actions__bar">
+          {saveAction ? <div className="detail-actions__primary">{saveAction}</div> : null}
+          {item.sourceUrl ? (
+            <a className="detail-actions__link" href={item.sourceUrl} rel="noreferrer" target="_blank">
+              View the original source
+              <Icon className="icon-sm" name="arrow-right" />
+            </a>
+          ) : null}
+        </div>
       </section>
 
-      <section>
-        <h2>Bangla Summary</h2>
-        <p lang="bn">{item.summaryBn}</p>
+      <section className="detail-grid">
+        <div className="detail-main">
+          <div className="detail-section">
+            <h2 className="detail-section__title">Research Overview</h2>
+            <p className="detail-summary" lang="bn">
+              {item.summaryBn}
+            </p>
+          </div>
+
+          <div className="detail-section">
+            <h2 className="detail-section__title detail-section__title--muted">Source Abstract</h2>
+            <p className="detail-abstract" lang={item.sourceLanguage}>
+              {item.abstract}
+            </p>
+          </div>
+
+          <ItemTags tags={item.tags} />
+        </div>
+
+        {author ? (
+          <aside className="detail-aside">
+            <div className="detail-expert">
+              <p className="detail-expert__eyebrow">Expert Context</p>
+              <span aria-hidden="true" className="detail-avatar detail-avatar--lg">
+                {initials(author.displayName)}
+              </span>
+              <h3 className="detail-expert__name">{author.displayName}</h3>
+              <p className="detail-expert__role">{author.roleLabel}</p>
+              <Link className="detail-expert__link" href={`/u/${author.id}`}>
+                View full profile
+              </Link>
+            </div>
+          </aside>
+        ) : null}
       </section>
 
-      {item.sourceUrl ? (
-        <a className="inline-link" href={item.sourceUrl} rel="noreferrer" target="_blank">
-          View the original source
-          <Icon className="icon-sm" name="arrow-right" />
-        </a>
+      {relatedItems.length > 0 ? (
+        <section className="detail-related">
+          <h2 className="detail-related__title">Expand Your Horizons</h2>
+          <div className="detail-related__rail">
+            {relatedItems.map((related) => (
+              <Link className="detail-related__card" href={`/content/${related.id}`} key={related.id}>
+                <span
+                  aria-hidden="true"
+                  className="detail-related__cover"
+                  style={{ background: exploreCover(related.id) }}
+                />
+                <span className="detail-related__name">{related.title}</span>
+                <span className="detail-related__summary" lang="bn">
+                  {related.summaryBn}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
       ) : null}
     </article>
   );
