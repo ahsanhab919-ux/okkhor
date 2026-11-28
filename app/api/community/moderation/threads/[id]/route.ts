@@ -9,7 +9,7 @@ import { authErrorResponse } from "@/src/modules/identity/api/auth-http";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
 
 import { resolveCommunityActor } from "../../../community-actor";
-import { notifyThreadModeration } from "../../../notify-moderation";
+import { notifyThreadModeration } from "../../../notify-producers";
 
 export const runtime = "nodejs";
 

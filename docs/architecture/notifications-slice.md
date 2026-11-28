@@ -116,9 +116,12 @@ Acceptance criteria:
 
 **Explicitly out of scope (deferred):**
 
-- **reply notifications** — telling a thread author that someone replied is named in the
-  password-reset slice's deferred list but is **not** wired here; it is a candidate follow-up (it needs
-  a producer at the reply write path and a decision about noise)
+- **reply notifications** — telling a thread author (and prior participants) that someone replied is
+  named in the password-reset slice's deferred list but is **not** wired here; it is a candidate
+  follow-up (it needs a producer at the reply write path and a decision about noise). **Partly
+  resolved** by [reply-notifications-slice.md](reply-notifications-slice.md): reply notifications are
+  now produced for a thread's author and its prior visible participants (recipients derived from the
+  thread, de-duplicated, replier excluded)
 - **verification-decision notifications** — the `verification` module's approve/reject decision is the
   other producer named in that deferred list; it is deferred to its own slice
 - **preferences, muting, or per-type opt-out** — every member receives every notification this slice

@@ -1,6 +1,6 @@
 # Reply Notifications Slice
 
-- Status: `Proposed` (fourteenth product slice; decisions recorded in §13)
+- Status: `Implemented` (fourteenth product slice; decisions recorded in §13)
 - Related ADRs: `ADR-001`, `ADR-002`, `ADR-004`
 - Owner: `Engineering Lead`
 - Handbook: `ENGINEERING_HANDBOOK.md` §7.2 (Definition of Ready), §7.3 (Definition of Done)
@@ -163,7 +163,7 @@ are unchanged).
 
 ### 6.1 Changed endpoint (behaviour only; shape unchanged)
 
-- `POST /api/community/threads/[id]/replies` ([api-contracts.md](api-contracts.md) §4.33) — on a
+- `POST /api/community/threads/[id]/replies` ([api-contracts.md](api-contracts.md) §4.22) — on a
   successful `201`, the route additionally creates a `reply_posted` notification for each recipient.
   The response (`{ "reply": { … } }`, `201`) is **unchanged**, and the notify step can never fail the
   response (§7).
@@ -341,7 +341,7 @@ Uses only `ADR-004` (PostgreSQL — the already-created `notifications` table) a
 ## 14. Definition of Done (`§7.3`)
 
 This slice is done only when: the acceptance criteria in §3 all pass; code is merged via PR;
-unit/integration/component tests are added; [api-contracts.md](api-contracts.md) (§4.33's reply-create
+unit/integration/component tests are added; [api-contracts.md](api-contracts.md) (§4.22's reply-create
 behaviour note), [data-models.md](data-models.md) (the new `NotificationType` value),
 [module-boundaries.md](module-boundaries.md) (the reply producer wiring and the helper rename),
 [system-overview.md](system-overview.md) (the reply delivery step in the request lifecycle), and the

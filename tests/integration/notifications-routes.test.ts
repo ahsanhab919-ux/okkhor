@@ -351,4 +351,140 @@ describe("notification routes", () => {
     expect((await listInbox(member.token)).notifications).toHaveLength(1);
     expect(console.error).toHaveBeenCalled();
   });
+
+  it("notifies the thread author and prior participants when a reply is posted, never the replier", async () => {
+    const author = await persona("01710000001");
+    const participant = await persona("01710000002");
+    const replier = await persona("01710000003");
+    const threadId = await createThreadFor(author.token, "Discuss");
+
+    // The participant's own reply notifies the author only.
+    await createReplyFor(participant.token, threadId);
+
+    const authorAfterFirst = await listInbox(author.token);
+
+    expect(authorAfterFirst.notifications).toHaveLength(1);
+    expect(authorAfterFirst.notifications[0]).toMatchObject({
+      recipientId: author.userId,
+      type: "reply_posted",
+      title: "New reply in a discussion you're part of",
+      href: `/community/${threadId}`,
+    });
+    expect((await listInbox(participant.token)).notifications).toEqual([]);
+
+    // The replier's later reply notifies the author and the prior participant, not the replier.
+    const replyId = await createReplyFor(replier.token, threadId);
+
+    expect((await listInbox(author.token)).notifications).toHaveLength(2);
+
+    const participantInbox = await listInbox(participant.token);
+
+    expect(participantInbox.notifications).toHaveLength(1);
+    expect(participantInbox.notifications[0]).toMatchObject({
+      type: "reply_posted",
+      dedupeKey: `reply_posted:${replyId}`,
+    });
+    expect((await listInbox(replier.token)).notifications).toEqual([]);
+    expect(getLastNotificationMessageForTesting()?.subject).toBe(
+      "New reply in a discussion you're part of",
+    );
+  });
+
+  it("notifies a member once when they are both the thread author and a prior replier", async () => {
+    const author = await persona("01710000001");
+    const other = await persona("01710000002");
+    const threadId = await createThreadFor(author.token, "Thread");
+
+    // The author replies to their own thread: nobody is notified.
+    await createReplyFor(author.token, threadId);
+    expect((await listInbox(author.token)).notifications).toEqual([]);
+
+    // Another member replies: the author is both the thread author and a prior participant, yet is
+    // notified exactly once for that reply.
+    await createReplyFor(other.token, threadId);
+
+    const inbox = await listInbox(author.token);
+
+    expect(inbox.notifications).toHaveLength(1);
+    expect(inbox.notifications[0].type).toBe("reply_posted");
+  });
+
+  it("does not notify the author of a hidden prior reply", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const author = await persona("01710000002");
+    const hiddenParticipant = await persona("01710000003");
+    const replier = await persona("01710000004");
+    const threadId = await createThreadFor(author.token);
+
+    const hiddenReplyId = await createReplyFor(hiddenParticipant.token, threadId);
+
+    await moderateReplyRoute(jsonRequest("POST", { action: "hide" }, admin.token), idContext(hiddenReplyId));
+    await createReplyFor(replier.token, threadId);
+
+    // The author is notified; the hidden participant is not re-noticed about the new reply (their
+    // only notification is the moderation outcome for their hidden reply).
+    expect((await listInbox(author.token)).notifications.some((n) => n.type === "reply_posted")).toBe(true);
+
+    const hiddenInbox = await listInbox(hiddenParticipant.token);
+
+    expect(hiddenInbox.notifications.some((n) => n.type === "reply_posted")).toBe(false);
+  });
+
+  it("creates no reply notification when the reply is rejected", async () => {
+    const admin = await persona("01710000001", ["admin"]);
+    const author = await persona("01710000002");
+    const other = await persona("01710000003");
+
+    const lockedThreadId = await createThreadFor(author.token, "Locked");
+
+    await moderateThreadRoute(
+      jsonRequest("POST", { action: "lock" }, admin.token),
+      idContext(lockedThreadId),
+    );
+
+    const locked = await createReplyRoute(
+      jsonRequest("POST", { body: "too late" }, other.token, THREADS_URL),
+      idContext(lockedThreadId),
+    );
+
+    expect(locked.status).toBe(409);
+
+    const hiddenThreadId = await createThreadFor(author.token, "Hidden");
+
+    await moderateThreadRoute(
+      jsonRequest("POST", { action: "hide" }, admin.token),
+      idContext(hiddenThreadId),
+    );
+
+    const hidden = await createReplyRoute(
+      jsonRequest("POST", { body: "gone" }, other.token, THREADS_URL),
+      idContext(hiddenThreadId),
+    );
+
+    expect(hidden.status).toBe(404);
+
+    const authorInbox = await listInbox(author.token);
+
+    expect(authorInbox.notifications.some((n) => n.type === "reply_posted")).toBe(false);
+  });
+
+  it("keeps the reply response when reply notification delivery fails", async () => {
+    const author = await persona("01710000001");
+    const replier = await persona("01710000002");
+    const threadId = await createThreadFor(author.token, "Resilient thread");
+
+    vi.spyOn(getLogNotificationChannel(), "send").mockRejectedValue(new Error("gateway down"));
+
+    const response = await createReplyRoute(
+      jsonRequest("POST", { body: "still works" }, replier.token, THREADS_URL),
+      idContext(threadId),
+    );
+
+    expect(response.status).toBe(201);
+    expect(((await response.json()) as { reply: { body: string } }).reply.body).toBe("still works");
+
+    // The notification was persisted before delivery, so the author's inbox still records it.
+    expect((await listInbox(author.token)).notifications).toHaveLength(1);
+    expect(console.error).toHaveBeenCalled();
+  });
 });

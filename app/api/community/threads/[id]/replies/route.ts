@@ -6,6 +6,7 @@ import { authErrorResponse } from "@/src/modules/identity/api/auth-http";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
 
 import { resolveCommunityActor } from "../../../community-actor";
+import { notifyNewReply } from "../../../notify-producers";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const { id } = await context.params;
     const body = await request.json();
     const reply = await createReply(actor, id, body);
+
+    await notifyNewReply(actor.id, id, reply.id);
 
     return communityJson({ reply }, { status: 201 });
   } catch (error) {

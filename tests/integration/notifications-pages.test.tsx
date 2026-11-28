@@ -106,6 +106,24 @@ describe("notifications pages", () => {
     expect(screen.getByRole("button", { name: "Mark read" })).toBeInTheDocument();
   });
 
+  it("renders a reply notification with a link back to the thread, with no component change", async () => {
+    const userId = await signInAs();
+
+    await createNotification({
+      recipientId: userId,
+      type: "reply_posted",
+      title: "New reply in a discussion you're part of",
+      body: "Someone replied to a community thread you're part of. Open it to catch up.",
+      href: "/community/thread-9",
+      dedupeKey: "reply_posted:reply-1",
+    });
+
+    render(await NotificationsPage());
+
+    expect(screen.getByText("New reply in a discussion you're part of")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View/i })).toHaveAttribute("href", "/community/thread-9");
+  });
+
   it("shows an empty state when the inbox is empty", async () => {
     await signInAs();
 

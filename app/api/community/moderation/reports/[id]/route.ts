@@ -6,7 +6,7 @@ import { authErrorResponse } from "@/src/modules/identity/api/auth-http";
 import { AuthError } from "@/src/modules/identity/domain/auth-errors";
 
 import { resolveCommunityActor } from "../../../community-actor";
-import { notifyReportOutcome } from "../../../notify-moderation";
+import { notifyReportOutcome } from "../../../notify-producers";
 
 export const runtime = "nodejs";
 

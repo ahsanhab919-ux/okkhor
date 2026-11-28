@@ -307,9 +307,11 @@ src/modules/notifications/
 no contact points and no copies of moderated content. It depends on `platform` for the shared
 Postgres pool config and the notification port (`notification-service.ts` imports
 `getNotificationChannels`), and it imports **no other domain module**. The producers are joined to
-it at the composition root: `app/api/community/notify-moderation.ts` resolves the recipient's
+it at the composition root: `app/api/community/notify-producers.ts` resolves the recipient's
 contact points through identity's `getNotificationDestinationById` and calls `createNotification`
-after a moderation write commits, so neither `community` nor `notifications` imports the other.
+after a community write commits — a moderation outcome, or a new reply (deriving its recipients from
+the thread through community's public `getThread`) — so neither `community` nor `notifications`
+imports the other.
 
 ## 6. Cross-Module Rules
 
@@ -374,13 +376,15 @@ Current dependency edges (verified in code):
   `platform` edge password reset uses). It imports **no other domain module**.
 - The **notifications slice** adds one new module (`notifications`, §5.10) and no edge between
   `community` and `notifications`. The producers are joined at the composition root:
-  `app/api/community/notify-moderation.ts` turns a moderation outcome (thread hide, reply hide,
-  report resolve/dismiss) into a `createNotification` call, resolving the recipient's contact
-  points through identity's `getNotificationDestinationById` — a new identity public function
-  that stays within identity's existing `platform` edge. The three producer routes
-  (`app/api/community/moderation/**`) invoke the helper after their already-authorized use case
-  commits; the inbox routes (`app/api/notifications/**`) and the `/notifications` page are
-  composed in `app/**`, so no module reaches into another.
+  `app/api/community/notify-producers.ts` (renamed from `notify-moderation.ts` by the
+  [reply-notifications slice](reply-notifications-slice.md), which added a reply producer) turns a
+  community outcome — a thread hide, a reply hide, a report resolve/dismiss, or a new reply — into a
+  `createNotification` call, resolving the recipient's contact points through identity's
+  `getNotificationDestinationById` — a new identity public function that stays within identity's
+  existing `platform` edge. The three producer routes (`app/api/community/moderation/**`) and the
+  reply route (`app/api/community/threads/[id]/replies/route.ts`) invoke the helper after their
+  already-authorized use case commits; the inbox routes (`app/api/notifications/**`) and the
+  `/notifications` page are composed in `app/**`, so no module reaches into another.
 
 Rules that follow:
 
