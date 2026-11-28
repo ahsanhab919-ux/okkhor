@@ -17,6 +17,11 @@ type CommunityThreadPageProps = {
   params: Promise<{ id: string }>;
 };
 
+/**
+ * The thread view. Stitch has no dedicated thread-detail screen, so this page carries the hub's
+ * card language — a bordered lead post with the category pill and byline, then a replies feed —
+ * rather than inventing a separate visual system.
+ */
 export default async function CommunityThreadPage({ params }: CommunityThreadPageProps) {
   const { id } = await params;
   const { thread, replies } = await getThread(id).catch((error: unknown) => {
@@ -32,30 +37,29 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
   const signedIn = Boolean(viewer);
 
   return (
-    <section className="content-band">
-      <div className="section-heading">
-        <div>
+    <div className="thread-page">
+      <header className="thread-hero">
+        <div className="thread-hero__meta">
           <Link className="pill" href={`/categories/${encodeURIComponent(thread.category)}`}>
             {thread.category}
           </Link>
           {thread.locked ? <span className="pill">Locked</span> : null}
-          <h1>{thread.title}</h1>
-          <p>Started {thread.createdAt.slice(0, 10)}</p>
+          <span className="thread-hero__ago">Started {thread.createdAt.slice(0, 10)}</span>
         </div>
+        <h1 className="thread-hero__title">{thread.title}</h1>
         <Link className="inline-link" href="/community">
           Back to the community
         </Link>
-      </div>
+      </header>
 
-      <article>
+      <article className="thread-post">
         <p>{thread.body}</p>
+        {signedIn ? (
+          <div className="thread-post__actions">
+            <ReportControls id={thread.id} target="thread" />
+          </div>
+        ) : null}
       </article>
-
-      {signedIn ? (
-        <div className="discussion-card__actions">
-          <ReportControls id={thread.id} target="thread" />
-        </div>
-      ) : null}
 
       {thread.locked ? (
         <p className="session-banner" role="status">
@@ -63,24 +67,29 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
         </p>
       ) : null}
 
-      <section className="content-band">
-        <h2>Replies</h2>
+      <section className="thread-replies">
+        <div className="thread-replies__head">
+          <h2>Replies</h2>
+          <span className="thread-replies__count">{replies.length}</span>
+        </div>
         {replies.length === 0 ? (
           <p>No replies yet. Be the first to respond.</p>
         ) : (
-          <ul className="activity-list">
+          <ul className="reply-list">
             {replies.map((reply) => (
-              <li key={reply.id} className="activity-entry">
+              <li key={reply.id} className="reply-card">
+                <span className="reply-card__meta">{reply.createdAt.slice(0, 10)}</span>
                 <p>{reply.body}</p>
-                <span>{reply.createdAt.slice(0, 10)}</span>
-                {signedIn ? <ReportControls id={reply.id} target="reply" /> : null}
-                {moderator ? (
-                  <ModerationControls
-                    id={reply.id}
-                    moderationState={reply.moderationState}
-                    target="reply"
-                  />
-                ) : null}
+                <div className="reply-card__actions">
+                  {signedIn ? <ReportControls id={reply.id} target="reply" /> : null}
+                  {moderator ? (
+                    <ModerationControls
+                      id={reply.id}
+                      moderationState={reply.moderationState}
+                      target="reply"
+                    />
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -97,6 +106,6 @@ export default async function CommunityThreadPage({ params }: CommunityThreadPag
           target="thread"
         />
       ) : null}
-    </section>
+    </div>
   );
 }
