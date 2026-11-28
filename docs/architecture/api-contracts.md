@@ -693,6 +693,17 @@ owner-scoped. See [notifications-slice.md](notifications-slice.md) §6.3.
 - **Success** `200`: `{ "updated": 3 }` — the number of notifications marked read.
 - **Errors:** `AUTH_UNAUTHORIZED` (401), `NOTIFICATION_UNKNOWN` (500).
 
+### 4.40 `GET /api/notifications/unread-count`
+
+The caller's unread notification count — the number the workspace sidebar badge shows. Requires an
+authenticated session (any role); owner-scoped to that session's member, exactly like
+`GET /api/notifications`. See [unread-badge-slice.md](unread-badge-slice.md) §6.1.
+
+- **Request:** no body and no query parameter.
+- **Success** `200`: `{ "unread": 2 }` — the number of the caller's notifications with no `readAt`
+  (`0` when none); a plain non-negative integer.
+- **Errors:** `AUTH_UNAUTHORIZED` (401), `NOTIFICATION_UNKNOWN` (500).
+
 ## 5. Rate Limiting
 
 Applied to `register`, `login`, `password-reset/request`, and `password-reset/confirm`. The client
@@ -797,7 +808,7 @@ truth is `src/modules/library/domain/library-errors.ts`:
 | `LIBRARY_ITEM_NOT_FOUND` | 404 | The item to save does not exist or is not published |
 | `LIBRARY_UNKNOWN` | 500 | Unhandled failure (fallback) |
 
-The notifications endpoints (§4.37–§4.39) use a parallel set of codes, whose executable source of
+The notifications endpoints (§4.37–§4.40) use a parallel set of codes, whose executable source of
 truth is `src/modules/notifications/domain/notification-errors.ts`:
 
 | Code | Status | Meaning |

@@ -98,3 +98,11 @@ export async function markNotificationRead(actor: NotificationActor, id: string)
 export async function markAllNotificationsRead(actor: NotificationActor): Promise<number> {
   return getNotificationRepository().markAllNotificationsRead(actor.id, new Date().toISOString());
 }
+
+/**
+ * The acting member's unread count — the number the workspace badge shows. Owner-scoped to the
+ * actor; a purely read lookup (`notifications-slice.md` §4, `unread-badge-slice.md` §6.1).
+ */
+export async function countUnreadNotifications(actor: NotificationActor): Promise<number> {
+  return getNotificationRepository().countUnread(actor.id);
+}

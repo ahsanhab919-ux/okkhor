@@ -392,6 +392,15 @@ Current dependency edges (verified in code):
   contact points through identity's `getNotificationDestinationById`. The decision route
   (`app/api/verification/applications/[id]/route.ts`) invokes it after `decideApplication` (and the
   approval grant) commits, so neither `verification` nor `notifications` imports the other.
+- The **unread-badge slice** adds no module and no edge. It adds one read-only repository method
+  (`NotificationRepository.countUnread`) and one use case (`countUnreadNotifications`) inside
+  `notifications`, exposed through one route (`app/api/notifications/unread-count/route.ts`). The
+  badge is chrome, so the fetch lives in `identity`'s `ProtectedWorkspaceShell` — which already
+  imports `experience`'s `AppSidebar` and calls the app's own session API — and the number is passed
+  to `experience`'s `AppSidebar` as a plain `unreadCount` prop, so `experience` stays presentational
+  and imports nothing new. The inbox's mark-read islands (`notifications` `ui`) and the shared shell
+  are decoupled by a `okkhor:inbox-changed` window event rather than an import in either direction.
+  No module imports another module's UI ([unread-badge-slice.md](unread-badge-slice.md) §8).
 
 Rules that follow:
 

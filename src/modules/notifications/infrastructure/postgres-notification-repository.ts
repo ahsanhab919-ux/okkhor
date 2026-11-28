@@ -111,6 +111,14 @@ function createPostgresNotificationRepository(pool: Pool): NotificationRepositor
 
       return result.rows[0] ? mapNotificationRow(result.rows[0]) : undefined;
     },
+    async countUnread(recipientId) {
+      const result = await pool.query<{ unread: string }>(
+        "SELECT COUNT(*)::text AS unread FROM notifications WHERE recipient_id = $1 AND read_at IS NULL",
+        [recipientId],
+      );
+
+      return Number.parseInt(result.rows[0]?.unread ?? "0", 10);
+    },
     async markNotificationRead(id, readAt) {
       const updated = await pool.query<PostgresNotificationRow>(
         `

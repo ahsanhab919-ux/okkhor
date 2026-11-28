@@ -26,6 +26,11 @@ function errorMessageOf(error: unknown) {
   return error instanceof Error ? error.message : "The request could not be completed.";
 }
 
+/** Tells the workspace shell to re-read the unread badge after a successful write. */
+function signalInboxChanged() {
+  window.dispatchEvent(new Event("okkhor:inbox-changed"));
+}
+
 /** Per-item mark-read island: one POST to `POST /api/notifications/[id]/read`, then a refresh. */
 export function MarkReadButton({ notificationId }: { notificationId: string }) {
   const router = useRouter();
@@ -42,6 +47,7 @@ export function MarkReadButton({ notificationId }: { notificationId: string }) {
 
     try {
       await callNotifications(`/api/notifications/${notificationId}/read`);
+      signalInboxChanged();
       router.refresh();
     } catch (error) {
       setErrorMessage(errorMessageOf(error));
@@ -81,6 +87,7 @@ export function MarkAllReadButton() {
 
     try {
       await callNotifications("/api/notifications/read-all");
+      signalInboxChanged();
       router.refresh();
     } catch (error) {
       setErrorMessage(errorMessageOf(error));
