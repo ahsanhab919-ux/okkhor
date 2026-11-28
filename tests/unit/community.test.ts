@@ -453,3 +453,77 @@ describe("community moderation repository", () => {
     });
   });
 });
+
+describe("community topic browse repository", () => {
+  beforeEach(() => {
+    resetCommunityStoreForTesting();
+  });
+
+  async function seedThread(
+    id: string,
+    category: string,
+    createdAt: string,
+    moderationState: ModerationState = "visible",
+    locked = false,
+  ) {
+    await getMemoryCommunityRepository().createThread({
+      id,
+      authorId: "a",
+      title: id,
+      body: "b",
+      category,
+      createdAt,
+      updatedAt: createdAt,
+      moderationState,
+      locked,
+    });
+  }
+
+  it("counts visible threads per category, ordered by count then category", async () => {
+    const repository = getMemoryCommunityRepository();
+
+    await seedThread("t1", "General", "2026-01-01T00:00:00.000Z");
+    await seedThread("t2", "General", "2026-01-02T00:00:00.000Z");
+    await seedThread("t3", "History", "2026-01-03T00:00:00.000Z");
+    // A hidden thread's category is never counted.
+    await seedThread("hidden", "History", "2026-01-04T00:00:00.000Z", "hidden");
+
+    expect(await repository.listDistinctCategories()).toEqual([
+      { category: "General", count: 2 },
+      { category: "History", count: 1 },
+    ]);
+  });
+
+  it("returns visible threads in a category, newest first, paginated, locked included", async () => {
+    const repository = getMemoryCommunityRepository();
+
+    await seedThread("a", "General", "2026-01-01T00:00:00.000Z");
+    await seedThread("locked", "General", "2026-01-15T00:00:00.000Z", "visible", true);
+    await seedThread("b", "General", "2026-02-01T00:00:00.000Z");
+    await seedThread("c", "General", "2026-03-01T00:00:00.000Z");
+    await seedThread("hidden", "General", "2026-04-01T00:00:00.000Z", "hidden");
+    await seedThread("other", "History", "2026-05-01T00:00:00.000Z");
+
+    expect(
+      (await repository.listThreadsByCategory("General", { limit: 10 })).threads.map((thread) => thread.id),
+    ).toEqual(["c", "b", "locked", "a"]);
+
+    const first = await repository.listThreadsByCategory("General", { limit: 2 });
+
+    expect(first.threads.map((thread) => thread.id)).toEqual(["c", "b"]);
+    expect(first.nextCursor).toEqual({ createdAt: "2026-02-01T00:00:00.000Z", id: "b" });
+
+    const second = await repository.listThreadsByCategory("General", {
+      limit: 2,
+      cursor: first.nextCursor,
+    });
+
+    expect(second.threads.map((thread) => thread.id)).toEqual(["locked", "a"]);
+    expect(second.nextCursor).toBeUndefined();
+
+    expect(await repository.listThreadsByCategory("missing", { limit: 10 })).toEqual({
+      threads: [],
+      nextCursor: undefined,
+    });
+  });
+});

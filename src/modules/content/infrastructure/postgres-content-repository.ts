@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 
 import { getItemCursor } from "@/src/modules/content/domain/content-pagination";
-import type { ContentRepository, ResearchItem } from "@/src/modules/content/domain/content-types";
+import type { ContentRepository, ResearchItem, TagCount } from "@/src/modules/content/domain/content-types";
 import { getPostgresPoolConfig } from "@/src/modules/platform/infrastructure/postgres-config";
 
 type PostgresContentItemRow = {
@@ -18,6 +18,11 @@ type PostgresContentItemRow = {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type PostgresTagCountRow = {
+  tag: string;
+  count: number;
 };
 
 declare global {
@@ -123,6 +128,32 @@ function createPostgresContentRepository(pool: Pool): ContentRepository {
           LIMIT $2
         `,
         [authorId, limit],
+      );
+
+      return result.rows.map(mapContentItemRow);
+    },
+    async listDistinctPublishedTags() {
+      const result = await pool.query<PostgresTagCountRow>(
+        `
+          SELECT tag, count(*)::int AS count
+          FROM content_items, jsonb_array_elements_text(tags) AS tag
+          WHERE status = 'published'
+          GROUP BY tag
+          ORDER BY count DESC, tag ASC
+        `,
+      );
+
+      return result.rows.map((row): TagCount => ({ tag: row.tag, count: row.count }));
+    },
+    async listPublishedItemsByTag(tag, { limit }) {
+      const result = await pool.query<PostgresContentItemRow>(
+        `
+          SELECT * FROM content_items
+          WHERE status = 'published' AND tags @> $1::jsonb
+          ORDER BY published_at DESC, id DESC
+          LIMIT $2
+        `,
+        [JSON.stringify([tag]), limit],
       );
 
       return result.rows.map(mapContentItemRow);

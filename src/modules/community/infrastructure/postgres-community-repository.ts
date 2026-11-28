@@ -2,6 +2,7 @@ import { Pool } from "pg";
 
 import { getThreadCursor } from "@/src/modules/community/domain/community-pagination";
 import type {
+  CategoryCount,
   CommunityRepository,
   CommunityReply,
   CommunityThread,
@@ -35,6 +36,11 @@ type PostgresCommunityReplyRow = {
   moderated_by: string | null;
   moderated_at: string | null;
   moderation_note: string | null;
+};
+
+type PostgresCategoryCountRow = {
+  category: string;
+  count: number;
 };
 
 declare global {
@@ -147,6 +153,53 @@ function createPostgresCommunityRepository(pool: Pool): CommunityRepository {
       );
 
       return result.rows.map((row) => ({ ...mapThreadRow(row), replyCount: row.reply_count ?? 0 }));
+    },
+    async listDistinctCategories() {
+      const result = await pool.query<PostgresCategoryCountRow>(
+        `
+          SELECT category, count(*)::int AS count
+          FROM community_threads
+          WHERE moderation_state = 'visible'
+          GROUP BY category
+          ORDER BY count DESC, category ASC
+        `,
+      );
+
+      return result.rows.map((row): CategoryCount => ({ category: row.category, count: row.count }));
+    },
+    async listThreadsByCategory(category, { limit, cursor }) {
+      const values: unknown[] = [category];
+      const conditions = ["t.moderation_state = 'visible'", "t.category = $1"];
+
+      if (cursor) {
+        values.push(cursor.createdAt, cursor.id);
+        conditions.push(`(t.created_at, t.id) < ($${values.length - 1}, $${values.length})`);
+      }
+
+      values.push(limit + 1);
+
+      const result = await pool.query<PostgresCommunityThreadRow>(
+        `
+          SELECT t.*, (
+            SELECT COUNT(*) FROM community_replies r
+            WHERE r.thread_id = t.id AND r.moderation_state = 'visible'
+          )::int AS reply_count
+          FROM community_threads t
+          WHERE ${conditions.join(" AND ")}
+          ORDER BY t.created_at DESC, t.id DESC
+          LIMIT $${values.length}
+        `,
+        values,
+      );
+
+      const rows = result.rows;
+      const page = rows.slice(0, limit);
+      const last = page[page.length - 1];
+
+      return {
+        threads: page.map((row) => ({ ...mapThreadRow(row), replyCount: row.reply_count ?? 0 })),
+        nextCursor: rows.length > limit && last ? getThreadCursor(mapThreadRow(last)) : undefined,
+      };
     },
     async createThread(thread) {
       await pool.query(

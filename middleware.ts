@@ -32,6 +32,7 @@ export const config = {
   matcher: [
     "/search/:path*",
     "/community/:path*",
+    "/categories/:path*",
     "/scholar-verify/:path*",
     "/studio/:path*",
     "/admin/:path*",
