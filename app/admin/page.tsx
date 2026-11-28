@@ -108,6 +108,9 @@ export default async function AdminOverviewPage() {
             </p>
           </div>
           <div className="page-hero__actions">
+            <Link className="inline-link" href="/admin/content">
+              Content
+            </Link>
             <Link className="inline-link" href="/admin/analytics">
               Analytics
             </Link>
